@@ -1,24 +1,28 @@
-import { Entity, Column, Index } from 'typeorm';
-import { BaseEntity } from '@/common/entities/base.entity';
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { Document } from 'mongoose';
 
-@Entity('users')
-export class User extends BaseEntity {
-  @Column({ length: 100 })
-  @Index()
+export type UserDocument = User & Document;
+
+@Schema({ timestamps: true })
+export class User {
+  _id: string;
+  @Prop({ required: true, unique: true, index: true })
   email: string;
 
-  @Column({ length: 100 })
+  @Prop({ required: true })
   firstName: string;
 
-  @Column({ length: 100 })
+  @Prop({ required: true })
   lastName: string;
 
-  @Column({ select: false })
+  @Prop({ required: true, select: false })
   password: string;
 
-  @Column({ default: true })
+  @Prop({ default: true })
   isActive: boolean;
 
-  @Column({ nullable: true })
+  @Prop()
   lastLoginAt?: Date;
 }
+
+export const UserSchema = SchemaFactory.createForClass(User);
