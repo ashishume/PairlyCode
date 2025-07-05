@@ -66,33 +66,59 @@ export class SessionsGateway
     @MessageBody() data: JoinSessionData,
   ) {
     try {
+      console.log('Join session request:', { clientId: client.id, data });
+
       // Extract user from JWT token (handled by WsJwtGuard)
-      const user = (client as any).user;
+      const user = client.data.user;
+      console.log('User from JWT:', user);
+
       if (!user) {
+        console.log('No user found in client.data');
         client.emit('error', { message: 'Authentication required' });
         return;
       }
 
       const { sessionId } = data;
 
+      if (!sessionId) {
+        console.log('No sessionId provided in joinSession request');
+        client.emit('error', { message: 'Session ID is required' });
+        return;
+      }
+
       // Join the session room
       await client.join(sessionId);
+      console.log(`Client ${client.id} joined room ${sessionId}`);
+
+      // Get full user data from database
+      const fullUser = await this.usersService.findOne(user.sub);
+      if (!fullUser) {
+        console.log('User not found in database:', user.sub);
+        client.emit('error', { message: 'User not found' });
+        return;
+      }
 
       // Add user as participant
-      await this.sessionsService.addParticipant(sessionId, user._id, client.id);
+      await this.sessionsService.addParticipant(
+        sessionId,
+        fullUser._id,
+        client.id,
+      );
+      console.log(`Added participant: ${user._id} to session: ${sessionId}`);
 
       // Get session details
       const session = await this.sessionsService.findSessionById(sessionId);
       const participants =
         await this.sessionsService.getActiveParticipants(sessionId);
+      console.log(`Session participants:`, participants.length);
 
       // Notify all users in the session
-      this.server.to(sessionId).emit('userJoined', {
+      const userJoinedData = {
         user: {
-          id: user._id,
-          firstName: user.firstName,
-          lastName: user.lastName,
-          email: user.email,
+          id: fullUser._id,
+          firstName: fullUser.firstName,
+          lastName: fullUser.lastName,
+          email: fullUser.email,
         },
         participants: participants.map((p) => ({
           id: p.user._id,
@@ -101,10 +127,13 @@ export class SessionsGateway
           email: p.user.email,
           cursorPosition: p.cursorPosition,
         })),
-      });
+      };
+
+      console.log('Emitting userJoined to room:', sessionId, userJoinedData);
+      this.server.to(sessionId).emit('userJoined', userJoinedData);
 
       // Send current session state to the joining user
-      client.emit('sessionJoined', {
+      const sessionJoinedData = {
         session,
         participants: participants.map((p) => ({
           id: p.user._id,
@@ -113,7 +142,14 @@ export class SessionsGateway
           email: p.user.email,
           cursorPosition: p.cursorPosition,
         })),
-      });
+      };
+
+      console.log(
+        'Emitting sessionJoined to client:',
+        client.id,
+        sessionJoinedData,
+      );
+      client.emit('sessionJoined', sessionJoinedData);
     } catch (error) {
       console.error('Error joining session:', error);
       client.emit('error', { message: 'Failed to join session' });
@@ -126,7 +162,7 @@ export class SessionsGateway
     @MessageBody() data: { sessionId: string },
   ) {
     try {
-      const user = (client as any).user;
+      const user = client.data.user;
       if (!user) {
         return;
       }
@@ -156,27 +192,45 @@ export class SessionsGateway
     @MessageBody() data: CursorUpdateData,
   ) {
     try {
-      const user = (client as any).user;
+      console.log('Cursor update request:', { clientId: client.id, data });
+
+      const user = client.data.user;
       if (!user) {
+        console.log('No user found for cursor update');
         return;
       }
 
       const { sessionId, position } = data;
 
+      if (!sessionId) {
+        console.log('No sessionId provided in cursor update');
+        return;
+      }
+
+      // Get full user data from database
+      const fullUser = await this.usersService.findOne(user.sub);
+      if (!fullUser) {
+        console.log('User not found in database for cursor update:', user.sub);
+        return;
+      }
+
       // Update cursor position in database
       await this.sessionsService.updateCursorPosition(
         sessionId,
-        user._id,
+        fullUser._id,
         position,
       );
 
       // Broadcast cursor update to other users in the session
-      client.to(sessionId).emit('cursorUpdated', {
-        userId: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
+      const cursorData = {
+        userId: fullUser._id,
+        firstName: fullUser.firstName,
+        lastName: fullUser.lastName,
         position,
-      });
+      };
+
+      console.log('Broadcasting cursor update to room:', sessionId, cursorData);
+      client.to(sessionId).emit('cursorUpdated', cursorData);
     } catch (error) {
       console.error('Error updating cursor:', error);
     }
@@ -188,21 +242,43 @@ export class SessionsGateway
     @MessageBody() data: CodeChangeData,
   ) {
     try {
-      const user = (client as any).user;
+      console.log('Code change request:', { clientId: client.id, data });
+
+      const user = client.data.user;
       if (!user) {
+        console.log('No user found for code change');
         return;
       }
 
       const { sessionId, changes, version } = data;
 
+      if (!sessionId) {
+        console.log('No sessionId provided in code change');
+        return;
+      }
+
+      // Get full user data from database
+      const fullUser = await this.usersService.findOne(user.sub);
+      if (!fullUser) {
+        console.log('User not found in database for code change:', user.sub);
+        return;
+      }
+
       // Broadcast code changes to other users in the session
-      client.to(sessionId).emit('codeChanged', {
-        userId: user._id,
-        firstName: user.firstName,
-        lastName: user.lastName,
+      const codeChangeData = {
+        userId: fullUser._id,
+        firstName: fullUser.firstName,
+        lastName: fullUser.lastName,
         changes,
         version,
-      });
+      };
+
+      console.log(
+        'Broadcasting code change to room:',
+        sessionId,
+        codeChangeData,
+      );
+      client.to(sessionId).emit('codeChanged', codeChangeData);
     } catch (error) {
       console.error('Error handling code change:', error);
     }
@@ -210,7 +286,7 @@ export class SessionsGateway
 
   private async handleUserDisconnect(client: Socket) {
     try {
-      const user = (client as any).user;
+      const user = client.data.user;
       if (!user) {
         return;
       }

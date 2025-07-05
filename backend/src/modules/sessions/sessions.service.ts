@@ -32,7 +32,7 @@ export class SessionsService {
     const session = new this.sessionModel({
       ...createSessionDto,
       host: user._id,
-      hostId: user._id,
+      hostId: user._id.toString(),
       roomId: uuidv4(),
     });
 
@@ -45,7 +45,21 @@ export class SessionsService {
       null,
     );
 
-    return savedSession;
+    // Return populated session
+    const populatedSession = await this.sessionModel
+      .findById(savedSession._id)
+      .populate('host')
+      .populate({
+        path: 'participants',
+        populate: { path: 'user' },
+      })
+      .exec();
+
+    if (!populatedSession) {
+      throw new Error('Failed to create session');
+    }
+
+    return populatedSession;
   }
 
   async findAllSessions(): Promise<Session[]> {
@@ -132,7 +146,9 @@ export class SessionsService {
     }
 
     const participant = new this.participantModel({
+      session: sessionId,
       sessionId,
+      user: userId,
       userId,
       socketId,
       isActive: true,

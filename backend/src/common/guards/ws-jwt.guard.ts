@@ -2,24 +2,41 @@ import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { WsException } from '@nestjs/websockets';
 import { Socket } from 'socket.io';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class WsJwtGuard implements CanActivate {
-  constructor(private jwtService: JwtService) {}
+  constructor(
+    private jwtService: JwtService,
+    private configService: ConfigService,
+  ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
     try {
       const client: Socket = context.switchToWs().getClient();
       const token = this.extractTokenFromHeader(client);
 
+      console.log('WsJwtGuard - Client ID:', client.id);
+      console.log('WsJwtGuard - Token found:', !!token);
+
       if (!token) {
         throw new WsException('Authentication token not found');
       }
 
-      const payload = await this.jwtService.verifyAsync(token);
-      client.data.user = payload;
+      try {
+        const payload = await this.jwtService.verifyAsync(token, {
+          secret: this.configService.get('jwt.secret'),
+        });
+        console.log('WsJwtGuard - JWT payload:', payload);
 
-      return true;
+        client.data.user = payload;
+        console.log('WsJwtGuard - User set in client.data:', client.data.user);
+
+        return true;
+      } catch (jwtError) {
+        console.error('WsJwtGuard - JWT verification failed:', jwtError);
+        throw new WsException('Invalid JWT token');
+      }
     } catch (error) {
       throw new WsException('Invalid token');
     }

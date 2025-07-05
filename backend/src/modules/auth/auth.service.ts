@@ -18,6 +18,10 @@ export class AuthService {
       throw new UnauthorizedException('Invalid credentials');
     }
 
+    if (!user.password) {
+      throw new UnauthorizedException('User password not found');
+    }
+
     const isPasswordValid = await bcrypt.compare(
       loginDto.password,
       user.password,

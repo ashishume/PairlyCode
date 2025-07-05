@@ -1,16 +1,29 @@
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
+import { Login } from "./pages/Login";
+import { Register } from "./pages/Register";
+import { PairProgramming } from "./pages/PairProgramming";
 import "./App.scss";
-import Home from "@/pages/Home";
-import EditorDemo from "@/pages/EditorDemo";
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/editor-demo" element={<EditorDemo />} />
-      </Routes>
-    </BrowserRouter>
+    <Router>
+      <div className="App">
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/register" element={<Register />} />
+          <Route path="/pair-programming" element={<PairProgramming />} />
+          <Route
+            path="/"
+            element={<Navigate to="/pair-programming" replace />}
+          />
+        </Routes>
+      </div>
+    </Router>
   );
 }
 

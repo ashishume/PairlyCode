@@ -23,12 +23,12 @@ const MonacoEditor: React.FC<MonacoEditorProps> = ({
   readOnly = false,
   options = {},
 }) => {
-  const handleEditorDidMount: OnMount = (editor, monaco) => {
+  const handleEditorDidMount: OnMount = () => {
     // You can access the editor instance here
     console.log("Editor mounted");
   };
 
-  const handleEditorWillMount: BeforeMount = (monaco) => {
+  const handleEditorWillMount: BeforeMount = () => {
     // You can configure Monaco before it's mounted
     console.log("Editor will mount");
   };
