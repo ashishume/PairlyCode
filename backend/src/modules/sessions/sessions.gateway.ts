@@ -223,7 +223,7 @@ export class SessionsGateway
 
       // Broadcast cursor update to other users in the session
       const cursorData = {
-        userId: fullUser._id,
+        userId: fullUser._id.toString(), // Convert ObjectId to string
         firstName: fullUser.firstName,
         lastName: fullUser.lastName,
         position,
@@ -266,7 +266,7 @@ export class SessionsGateway
 
       // Broadcast code changes to other users in the session
       const codeChangeData = {
-        userId: fullUser._id,
+        userId: fullUser._id.toString(), // Convert ObjectId to string
         firstName: fullUser.firstName,
         lastName: fullUser.lastName,
         changes,
