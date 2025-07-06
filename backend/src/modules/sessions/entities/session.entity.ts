@@ -19,6 +19,12 @@ export class Session {
   @Prop()
   description: string;
 
+  @Prop({ required: true })
+  language: string;
+
+  @Prop({ required: true })
+  code: string;
+
   @Prop({ enum: SessionStatus, default: SessionStatus.ACTIVE })
   status: SessionStatus;
 

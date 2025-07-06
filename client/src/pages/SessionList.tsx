@@ -14,6 +14,8 @@ export const SessionListPage: React.FC = () => {
   const handleCreateSession = async (data: {
     name: string;
     description: string;
+    language: string;
+    code: string;
   }) => {
     try {
       setLoading(true);

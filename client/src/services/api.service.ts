@@ -46,11 +46,15 @@ export interface RegisterData {
 export interface CreateSessionData {
   name: string;
   description?: string;
+  language: string;
+  code: string;
 }
 
 export interface UpdateSessionData {
   name?: string;
   description?: string;
+  language?: string;
+  code?: string;
 }
 
 export const apiService = {

@@ -20,6 +20,8 @@ export interface Session {
   _id?: string;
   name: string;
   description?: string;
+  language: string;
+  code: string;
   status: string;
   roomId: string;
   host: User;
@@ -40,6 +42,13 @@ export interface CodeChange {
   lastName: string;
   changes: any[];
   version: number;
+}
+
+export interface CodeUpdate {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  code: string;
 }
 
 class SocketService {
@@ -156,6 +165,18 @@ class SocketService {
     });
   }
 
+  sendCodeUpdate(sessionId: string, code: string) {
+    if (!this.socket) {
+      throw new Error("Socket not connected");
+    }
+
+    this.socket.emit("updateCode", {
+      sessionId,
+      code,
+      timestamp: Date.now(),
+    });
+  }
+
   onUserJoined(
     callback: (data: { user: User; participants: Participant[] }) => void
   ) {
@@ -202,6 +223,13 @@ class SocketService {
         changesCount: data.changes?.length,
         changes: data.changes,
       });
+      callback(data);
+    });
+  }
+
+  onCodeUpdated(callback: (data: CodeUpdate) => void) {
+    if (!this.socket) return;
+    this.socket.on("codeUpdated", (data) => {
       callback(data);
     });
   }

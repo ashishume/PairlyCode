@@ -186,6 +186,10 @@ export class SessionsService {
     }
   }
 
+  async updateSessionCode(sessionId: string, code: string): Promise<void> {
+    await this.sessionModel.findByIdAndUpdate(sessionId, { code }).exec();
+  }
+
   async getActiveParticipants(
     sessionId: string,
   ): Promise<SessionParticipant[]> {

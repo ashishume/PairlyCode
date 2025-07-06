@@ -156,6 +156,10 @@ export const SessionList: React.FC<SessionListProps> = ({
                         <span>{session.participants.length} participants</span>
                       </div>
                       <div className="flex items-center space-x-1">
+                        <Code className="w-4 h-4" />
+                        <span className="capitalize">{session.language}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
                         <span>
                           Host: {session.host.firstName} {session.host.lastName}
                         </span>

@@ -183,8 +183,11 @@ export const ActiveSession: React.FC = () => {
         <CollaborativeEditor
           sessionId={currentSession.id || currentSession._id || ""}
           participants={participants}
-          language="javascript"
-          initialCode="// Welcome to your collaborative coding session!\n// Start coding with your team...\n\nfunction hello() {\n  console.log('Hello, World!');\n}"
+          language={currentSession.language || "javascript"}
+          initialCode={
+            currentSession.code ||
+            "// Welcome to your collaborative coding session!\n// Start coding with your team...\n\nfunction hello() {\n  console.log('Hello, World!');\n}"
+          }
         />
       </div>
 

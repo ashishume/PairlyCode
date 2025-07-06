@@ -8,6 +8,13 @@ export class CreateSessionDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsNotEmpty()
+  language: string;
+
+  @IsString()
+  code: string;
 }
 
 export class JoinSessionDto {
@@ -24,4 +31,12 @@ export class UpdateSessionDto {
   @IsString()
   @IsOptional()
   description?: string;
+
+  @IsString()
+  @IsOptional()
+  language?: string;
+
+  @IsString()
+  @IsOptional()
+  code?: string;
 }

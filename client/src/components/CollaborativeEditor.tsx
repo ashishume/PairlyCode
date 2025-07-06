@@ -5,6 +5,7 @@ import type {
   Participant,
   CursorPosition,
   CodeChange,
+  CodeUpdate,
 } from "../services/socket.service";
 import { Users2 } from "lucide-react";
 
@@ -58,7 +59,6 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   const currentUserIdRef = useRef<string | null>(null);
   const pendingChangesRef = useRef<PendingChange[]>([]);
   const lastSentVersionRef = useRef(0);
-  const changeSequenceRef = useRef(0);
 
   // Initialize current user ID once
   useEffect(() => {
@@ -72,15 +72,6 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       }
     }
   }, []);
-
-  // Generate unique colors for participants
-  const getParticipantColor = useCallback(
-    (userId: string) => {
-      const index = participants.findIndex((p) => p.id === userId);
-      return CURSOR_COLORS[index % CURSOR_COLORS.length];
-    },
-    [participants]
-  );
 
   // Send changes immediately - no batching for now
   const sendChanges = useCallback(
@@ -272,6 +263,35 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       }
     };
 
+    const handleCodeUpdate = (data: CodeUpdate) => {
+      // Only apply updates if they're from a different user
+      if (data.userId === currentUserIdRef.current) {
+        return;
+      }
+
+      if (!editorRef.current) {
+        return;
+      }
+
+      // Set flag to prevent feedback loop
+      isApplyingRemoteChangesRef.current = true;
+
+      try {
+        // Replace the entire content with the new code
+        editorRef.current.setValue(data.code);
+
+        // Call onCodeChange if provided
+        if (onCodeChange) {
+          onCodeChange(data.code);
+        }
+      } catch (error) {
+        console.error("Error applying code update:", error);
+      } finally {
+        // Reset flag immediately
+        isApplyingRemoteChangesRef.current = false;
+      }
+    };
+
     const handleUserJoined = (data: {
       user: any;
       participants: Participant[];
@@ -294,6 +314,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     // Clean up existing listeners first
     socketService.off("cursorUpdated");
     socketService.off("codeChanged");
+    socketService.off("codeUpdated");
     socketService.off("userJoined");
     socketService.off("userLeft");
     socketService.off("error");
@@ -301,6 +322,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     // Set up socket listeners
     socketService.onCursorUpdated(handleCursorUpdate);
     socketService.onCodeChanged(handleCodeChange);
+    socketService.onCodeUpdated(handleCodeUpdate);
     socketService.onUserJoined(handleUserJoined);
     socketService.onUserLeft(handleUserLeft);
     socketService.onError(handleError);
@@ -308,6 +330,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     return () => {
       socketService.off("cursorUpdated");
       socketService.off("codeChanged");
+      socketService.off("codeUpdated");
       socketService.off("userJoined");
       socketService.off("userLeft");
       socketService.off("error");

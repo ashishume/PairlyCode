@@ -30,6 +30,12 @@ interface CodeChangeData {
   sessionId: string;
   changes: any[];
   version: number;
+  code?: string;
+}
+
+interface UpdateCodeData {
+  sessionId: string;
+  code: string;
 }
 
 @WebSocketGateway({
@@ -254,6 +260,14 @@ export class SessionsGateway
         return;
       }
 
+      // Update the session code in the database
+      // Note: This is a simplified approach. In a real implementation,
+      // you might want to apply the changes to the current code
+      // For now, we'll just update with the latest code if provided
+      if (data.code) {
+        await this.sessionsService.updateSessionCode(sessionId, data.code);
+      }
+
       // Broadcast code changes to other users in the session
       const codeChangeData = {
         userId: fullUser._id.toString(), // Convert ObjectId to string
@@ -271,6 +285,56 @@ export class SessionsGateway
       client.to(sessionId).emit('codeChanged', codeChangeData);
     } catch (error) {
       console.error('Error handling code change:', error);
+    }
+  }
+
+  @SubscribeMessage('updateCode')
+  async handleUpdateCode(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: UpdateCodeData,
+  ) {
+    try {
+      console.log('Update code request:', { clientId: client.id, data });
+
+      const user = client.data.user;
+      if (!user) {
+        console.log('No user found for code update');
+        return;
+      }
+
+      const { sessionId, code } = data;
+
+      if (!sessionId) {
+        console.log('No sessionId provided in code update');
+        return;
+      }
+
+      // Get full user data from database
+      const fullUser = await this.usersService.findOne(user.sub);
+      if (!fullUser) {
+        console.log('User not found in database for code update:', user.sub);
+        return;
+      }
+
+      // Update the session code in the database
+      await this.sessionsService.updateSessionCode(sessionId, code);
+
+      // Broadcast code update to other users in the session
+      const codeUpdateData = {
+        userId: fullUser._id.toString(),
+        firstName: fullUser.firstName,
+        lastName: fullUser.lastName,
+        code,
+      };
+
+      console.log(
+        'Broadcasting code update to room:',
+        sessionId,
+        codeUpdateData,
+      );
+      client.to(sessionId).emit('codeUpdated', codeUpdateData);
+    } catch (error) {
+      console.error('Error handling code update:', error);
     }
   }
 
