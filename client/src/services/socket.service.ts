@@ -90,7 +90,7 @@ class SocketService {
 
     // Add debug logging for all events
     this.socket.onAny((event, ...args) => {
-      console.log(`Socket event received: ${event}`, args);
+      // console.log(`Socket event received: ${event}`, args);
     });
   }
 
@@ -136,7 +136,7 @@ class SocketService {
       throw new Error("Socket not connected");
     }
 
-    console.log("Socket service updating cursor:", { sessionId, position });
+    // console.log("Socket service updating cursor:", { sessionId, position });
     this.socket.emit("updateCursor", { sessionId, position });
   }
 
@@ -144,18 +144,6 @@ class SocketService {
     if (!this.socket) {
       throw new Error("Socket not connected");
     }
-
-    console.log("Sending code change via socket:", {
-      sessionId,
-      changes,
-      version,
-      socketId: this.socket.id,
-      changeDetails: changes.map((c) => ({
-        range: c.range,
-        text: c.text,
-        rangeLength: c.rangeLength,
-      })),
-    });
 
     this.socket.emit("codeChange", {
       sessionId,
@@ -165,12 +153,13 @@ class SocketService {
     });
   }
 
-  sendCodeUpdate(sessionId: string, code: string) {
+  sendCodeUpdate(userId: string, sessionId: string, code: string) {
     if (!this.socket) {
       throw new Error("Socket not connected");
     }
 
     this.socket.emit("updateCode", {
+      userId,
       sessionId,
       code,
       timestamp: Date.now(),
@@ -217,12 +206,6 @@ class SocketService {
   onCodeChanged(callback: (data: CodeChange) => void) {
     if (!this.socket) return;
     this.socket.on("codeChanged", (data) => {
-      console.log("Socket received codeChanged event:", {
-        userId: data.userId,
-        version: data.version,
-        changesCount: data.changes?.length,
-        changes: data.changes,
-      });
       callback(data);
     });
   }

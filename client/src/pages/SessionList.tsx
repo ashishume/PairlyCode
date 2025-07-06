@@ -22,7 +22,7 @@ export const SessionListPage: React.FC = () => {
       setError(null);
 
       const session = await apiService.createSession(data);
-      console.log("Created session:", session);
+      // console.log("Created session:", session);
       setShowCreateModal(false);
 
       // Navigate to the new session
@@ -42,7 +42,7 @@ export const SessionListPage: React.FC = () => {
   const handleSessionSelect = async (session: Session) => {
     try {
       setError(null);
-      console.log("Selected session:", session);
+      // console.log("Selected session:", session);
 
       // Navigate to the session
       const sessionId = session.id || session._id;

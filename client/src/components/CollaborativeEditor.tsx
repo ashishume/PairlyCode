@@ -114,7 +114,6 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       // Set up content change listener - send immediately
       editor.onDidChangeModelContent((e: any) => {
         const changes = e.changes;
-
         // Skip if no changes or if we're applying remote changes
         if (changes.length === 0 || isApplyingRemoteChangesRef.current) {
           return;
@@ -296,7 +295,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       user: any;
       participants: Participant[];
     }) => {
-      console.log("User joined:", data.user);
+      // console.log("User joined:", data.user);
     };
 
     const handleUserLeft = (data: {

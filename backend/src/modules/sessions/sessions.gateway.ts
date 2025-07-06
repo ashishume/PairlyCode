@@ -34,6 +34,7 @@ interface CodeChangeData {
 }
 
 interface UpdateCodeData {
+  userId: string;
   sessionId: string;
   code: string;
 }
@@ -57,11 +58,11 @@ export class SessionsGateway
   ) {}
 
   async handleConnection(client: Socket) {
-    console.log(`Client connected: ${client.id}`);
+    // console.log(`Client connected: ${client.id}`);
   }
 
   async handleDisconnect(client: Socket) {
-    console.log(`Client disconnected: ${client.id}`);
+    // console.log(`Client disconnected: ${client.id}`);
     // Handle cleanup when user disconnects
     await this.handleUserDisconnect(client);
   }
@@ -72,14 +73,14 @@ export class SessionsGateway
     @MessageBody() data: JoinSessionData,
   ) {
     try {
-      console.log('Join session request:', { clientId: client.id, data });
+      // console.log('Join session request:', { clientId: client.id, data });
 
       // Extract user from JWT token (handled by WsJwtGuard)
       const user = client.data.user;
-      console.log('User from JWT:', user);
+      // console.log('User from JWT:', user);
 
       if (!user) {
-        console.log('No user found in client.data');
+        // console.log('No user found in client.data');
         client.emit('error', { message: 'Authentication required' });
         return;
       }
@@ -87,7 +88,7 @@ export class SessionsGateway
       const { sessionId } = data;
 
       if (!sessionId) {
-        console.log('No sessionId provided in joinSession request');
+        // console.log('No sessionId provided in joinSession request');
         client.emit('error', { message: 'Session ID is required' });
         return;
       }
@@ -188,25 +189,25 @@ export class SessionsGateway
     @MessageBody() data: CursorUpdateData,
   ) {
     try {
-      console.log('Cursor update request:', { clientId: client.id, data });
+      // console.log('Cursor update request:', { clientId: client.id, data });
 
       const user = client.data.user;
       if (!user) {
-        console.log('No user found for cursor update');
+        // console.log('No user found for cursor update');
         return;
       }
 
       const { sessionId, position } = data;
 
       if (!sessionId) {
-        console.log('No sessionId provided in cursor update');
+        // console.log('No sessionId provided in cursor update');
         return;
       }
 
       // Get full user data from database
       const fullUser = await this.usersService.findOne(user.sub);
       if (!fullUser) {
-        console.log('User not found in database for cursor update:', user.sub);
+        // console.log('User not found in database for cursor update:', user.sub);
         return;
       }
 
@@ -225,7 +226,7 @@ export class SessionsGateway
         position,
       };
 
-      console.log('Broadcasting cursor update to room:', sessionId, cursorData);
+      // console.log('Broadcasting cursor update to room:', sessionId, cursorData);
       client.to(sessionId).emit('cursorUpdated', cursorData);
     } catch (error) {
       console.error('Error updating cursor:', error);
@@ -238,7 +239,7 @@ export class SessionsGateway
     @MessageBody() data: CodeChangeData,
   ) {
     try {
-      console.log('Code change request:', { clientId: client.id, data });
+      // console.log('Code change request:', { clientId: client.id, data });
 
       const user = client.data.user;
       if (!user) {
@@ -249,14 +250,14 @@ export class SessionsGateway
       const { sessionId, changes, version } = data;
 
       if (!sessionId) {
-        console.log('No sessionId provided in code change');
+        // console.log('No sessionId provided in code change');
         return;
       }
 
       // Get full user data from database
       const fullUser = await this.usersService.findOne(user.sub);
       if (!fullUser) {
-        console.log('User not found in database for code change:', user.sub);
+        // console.log('User not found in database for code change:', user.sub);
         return;
       }
 
@@ -277,11 +278,11 @@ export class SessionsGateway
         version,
       };
 
-      console.log(
-        'Broadcasting code change to room:',
-        sessionId,
-        codeChangeData,
-      );
+      // console.log(
+      //   'Broadcasting code change to room:',
+      //   sessionId,
+      //   codeChangeData,
+      // );
       client.to(sessionId).emit('codeChanged', codeChangeData);
     } catch (error) {
       console.error('Error handling code change:', error);
@@ -294,25 +295,25 @@ export class SessionsGateway
     @MessageBody() data: UpdateCodeData,
   ) {
     try {
-      console.log('Update code request:', { clientId: client.id, data });
+      // console.log('Update code request:', { clientId: client.id, data });
 
       const user = client.data.user;
       if (!user) {
-        console.log('No user found for code update');
+        // console.log('No user found for code update');
         return;
       }
 
-      const { sessionId, code } = data;
-
+      const { sessionId, code, userId } = data;
+      // console.log({ userId });
       if (!sessionId) {
-        console.log('No sessionId provided in code update');
+        // console.log('No sessionId provided in code update');
         return;
       }
 
       // Get full user data from database
-      const fullUser = await this.usersService.findOne(user.sub);
+      const fullUser = await this.usersService.findOne(userId);
       if (!fullUser) {
-        console.log('User not found in database for code update:', user.sub);
+        // console.log('User not found in database for code update:', user.sub);
         return;
       }
 
@@ -321,17 +322,12 @@ export class SessionsGateway
 
       // Broadcast code update to other users in the session
       const codeUpdateData = {
-        userId: fullUser._id.toString(),
+        userId,
         firstName: fullUser.firstName,
         lastName: fullUser.lastName,
         code,
       };
 
-      console.log(
-        'Broadcasting code update to room:',
-        sessionId,
-        codeUpdateData,
-      );
       client.to(sessionId).emit('codeUpdated', codeUpdateData);
     } catch (error) {
       console.error('Error handling code update:', error);
