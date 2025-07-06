@@ -88,12 +88,10 @@ export class SessionsGateway
 
       // Join the session room
       await client.join(sessionId);
-      console.log(`Client ${client.id} joined room ${sessionId}`);
 
       // Get full user data from database
       const fullUser = await this.usersService.findOne(user.sub);
       if (!fullUser) {
-        console.log('User not found in database:', user.sub);
         client.emit('error', { message: 'User not found' });
         return;
       }
@@ -104,13 +102,11 @@ export class SessionsGateway
         fullUser._id,
         client.id,
       );
-      console.log(`Added participant: ${user._id} to session: ${sessionId}`);
 
       // Get session details
       const session = await this.sessionsService.findSessionById(sessionId);
       const participants =
         await this.sessionsService.getActiveParticipants(sessionId);
-      console.log(`Session participants:`, participants.length);
 
       // Notify all users in the session
       const userJoinedData = {
@@ -129,7 +125,6 @@ export class SessionsGateway
         })),
       };
 
-      console.log('Emitting userJoined to room:', sessionId, userJoinedData);
       this.server.to(sessionId).emit('userJoined', userJoinedData);
 
       // Send current session state to the joining user
@@ -144,11 +139,6 @@ export class SessionsGateway
         })),
       };
 
-      console.log(
-        'Emitting sessionJoined to client:',
-        client.id,
-        sessionJoinedData,
-      );
       client.emit('sessionJoined', sessionJoinedData);
     } catch (error) {
       console.error('Error joining session:', error);

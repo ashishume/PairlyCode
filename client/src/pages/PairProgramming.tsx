@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { CollaborativeEditor } from "../components/CollaborativeEditor";
 import { SessionList } from "../components/SessionList";
 import { CreateSessionModal } from "../components/CreateSessionModal";
@@ -8,6 +9,8 @@ import type { Session, Participant } from "../services/socket.service";
 import { ArrowLeft, Settings, Users } from "lucide-react";
 
 export const PairProgramming: React.FC = () => {
+  const { sessionId: urlSessionId } = useParams<{ sessionId: string }>();
+  const navigate = useNavigate();
   const [currentSession, setCurrentSession] = useState<Session | null>(null);
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -28,6 +31,33 @@ export const PairProgramming: React.FC = () => {
     socketService.connect(token);
   }, []);
 
+  // Load session from URL parameter if present
+  useEffect(() => {
+    if (urlSessionId) {
+      loadSessionFromUrl(urlSessionId);
+    }
+  }, [urlSessionId]);
+
+  const loadSessionFromUrl = async (sessionId: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const session = await apiService.getSession(sessionId);
+      setCurrentSession(session);
+
+      // Join the session via WebSocket
+      socketService.joinSession(sessionId);
+    } catch (err) {
+      setError("Failed to load session");
+      console.error("Error loading session:", err);
+      // Redirect back to sessions list if session not found
+      navigate("/pair-programming");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleCreateSession = async (data: {
     name: string;
     description: string;
@@ -38,16 +68,14 @@ export const PairProgramming: React.FC = () => {
 
       const session = await apiService.createSession(data);
       console.log("Created session:", session);
-      setCurrentSession(session);
       setShowCreateModal(false);
 
-      // Join the session via WebSocket
+      // Navigate to the new session
       const sessionId = session.id || session._id;
       if (!sessionId) {
         throw new Error("Session ID not found");
       }
-      console.log("Joining session with ID:", sessionId);
-      socketService.joinSession(sessionId);
+      navigate(`/session/${sessionId}`);
     } catch (err) {
       setError("Failed to create session");
       console.error("Error creating session:", err);
@@ -60,15 +88,13 @@ export const PairProgramming: React.FC = () => {
     try {
       setError(null);
       console.log("Selected session:", session);
-      setCurrentSession(session);
 
-      // Join the session via WebSocket
+      // Navigate to the session
       const sessionId = session.id || session._id;
       if (!sessionId) {
         throw new Error("Session ID not found");
       }
-      console.log("Joining session with ID:", sessionId);
-      socketService.joinSession(sessionId);
+      navigate(`/session/${sessionId}`);
     } catch (err) {
       setError("Failed to join session");
       console.error("Error joining session:", err);
@@ -84,6 +110,7 @@ export const PairProgramming: React.FC = () => {
     }
     setCurrentSession(null);
     setParticipants([]);
+    navigate("/pair-programming");
   };
 
   // Set up WebSocket listeners
@@ -134,6 +161,18 @@ export const PairProgramming: React.FC = () => {
       socketService.disconnect();
     };
   }, []);
+
+  // Show loading state when loading session from URL
+  if (loading && urlSessionId) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading session...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (currentSession) {
     return (

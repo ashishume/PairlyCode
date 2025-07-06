@@ -17,6 +17,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
           <Route path="/pair-programming" element={<PairProgramming />} />
+          <Route path="/session/:sessionId" element={<PairProgramming />} />
           <Route
             path="/"
             element={<Navigate to="/pair-programming" replace />}
