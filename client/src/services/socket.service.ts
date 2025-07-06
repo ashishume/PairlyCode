@@ -44,6 +44,8 @@ export interface CodeChange {
 
 class SocketService {
   private socket: Socket | null = null;
+  private reconnectAttempts = 0;
+  private maxReconnectAttempts = 5;
 
   connect(token: string) {
     this.socket = io(import.meta.env.VITE_API_URL || "http://localhost:3000", {
@@ -51,19 +53,48 @@ class SocketService {
         token: token,
       },
       transports: ["websocket", "polling"],
+      timeout: 20000,
+      forceNew: true,
     });
 
     this.socket.on("connect", () => {
-      console.log("Connected to server");
+      console.log("Connected to server with ID:", this.socket?.id);
+      this.reconnectAttempts = 0;
     });
 
-    this.socket.on("disconnect", () => {
-      console.log("Disconnected from server");
+    this.socket.on("disconnect", (reason) => {
+      console.log("Disconnected from server:", reason);
+      if (reason === "io server disconnect") {
+        // Server disconnected, try to reconnect
+        this.handleReconnect();
+      }
+    });
+
+    this.socket.on("connect_error", (error) => {
+      console.error("Connection error:", error);
+      this.handleReconnect();
     });
 
     this.socket.on("error", (error) => {
       console.error("Socket error:", error);
     });
+
+    // Add debug logging for all events
+    this.socket.onAny((event, ...args) => {
+      console.log(`Socket event received: ${event}`, args);
+    });
+  }
+
+  private handleReconnect() {
+    if (this.reconnectAttempts < this.maxReconnectAttempts) {
+      this.reconnectAttempts++;
+      console.log(
+        `Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`
+      );
+      setTimeout(() => {
+        this.socket?.connect();
+      }, 1000 * this.reconnectAttempts);
+    }
   }
 
   disconnect() {
@@ -105,8 +136,24 @@ class SocketService {
       throw new Error("Socket not connected");
     }
 
-    console.log("Sending code change:", { sessionId, changes, version });
-    this.socket.emit("codeChange", { sessionId, changes, version });
+    console.log("Sending code change via socket:", {
+      sessionId,
+      changes,
+      version,
+      socketId: this.socket.id,
+      changeDetails: changes.map((c) => ({
+        range: c.range,
+        text: c.text,
+        rangeLength: c.rangeLength,
+      })),
+    });
+
+    this.socket.emit("codeChange", {
+      sessionId,
+      changes,
+      version,
+      timestamp: Date.now(),
+    });
   }
 
   onUserJoined(
@@ -149,7 +196,12 @@ class SocketService {
   onCodeChanged(callback: (data: CodeChange) => void) {
     if (!this.socket) return;
     this.socket.on("codeChanged", (data) => {
-      console.log("Socket received codeChanged event:", data);
+      console.log("Socket received codeChanged event:", {
+        userId: data.userId,
+        version: data.version,
+        changesCount: data.changes?.length,
+        changes: data.changes,
+      });
       callback(data);
     });
   }
@@ -164,8 +216,25 @@ class SocketService {
     this.socket.off(event);
   }
 
+  // Remove all listeners for a specific event
+  removeAllListeners(event: string) {
+    if (!this.socket) return;
+    this.socket.removeAllListeners(event);
+  }
+
   isConnected(): boolean {
     return this.socket?.connected || false;
+  }
+
+  // Get current socket ID
+  getSocketId(): string | undefined {
+    return this.socket?.id;
+  }
+
+  // Emit a test event to check connectivity
+  ping() {
+    if (!this.socket) return;
+    this.socket.emit("ping", { timestamp: Date.now() });
   }
 }
 

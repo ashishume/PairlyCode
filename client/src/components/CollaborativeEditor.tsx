@@ -24,6 +24,12 @@ interface CursorInfo {
   color: string;
 }
 
+interface PendingChange {
+  changes: any[];
+  version: number;
+  timestamp: number;
+}
+
 const CURSOR_COLORS = [
   "#FF6B6B",
   "#4ECDC4",
@@ -47,10 +53,12 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   const [isConnected, setIsConnected] = useState(false);
   const [version, setVersion] = useState(0);
 
-  // Use a more reliable flag system
+  // Enhanced state management
   const isApplyingRemoteChangesRef = useRef(false);
-  const changeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const currentUserIdRef = useRef<string | null>(null);
+  const pendingChangesRef = useRef<PendingChange[]>([]);
+  const lastSentVersionRef = useRef(0);
+  const changeSequenceRef = useRef(0);
 
   // Initialize current user ID once
   useEffect(() => {
@@ -59,7 +67,6 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       try {
         const payload = JSON.parse(atob(token.split(".")[1]));
         currentUserIdRef.current = payload.sub;
-        console.log("Current user ID:", currentUserIdRef.current);
       } catch (error) {
         console.error("Error parsing JWT token:", error);
       }
@@ -75,13 +82,27 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     [participants]
   );
 
+  // Send changes immediately - no batching for now
+  const sendChanges = useCallback(
+    (changes: any[], currentVersion: number) => {
+      const newVersion = currentVersion + 1;
+
+      setVersion(newVersion);
+      lastSentVersionRef.current = newVersion;
+
+      socketService.sendCodeChange(sessionId, changes, newVersion);
+
+      // Call onCodeChange if provided
+      if (onCodeChange && editorRef.current) {
+        onCodeChange(editorRef.current.getValue());
+      }
+    },
+    [sessionId, onCodeChange]
+  );
+
   // Create a stable mount handler
   const handleEditorDidMount = useCallback(
     (editor: any) => {
-      console.log(
-        "Editor mounted, setting up listeners for session:",
-        sessionId
-      );
       editorRef.current = editor;
       setIsConnected(true);
 
@@ -99,50 +120,62 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
         socketService.updateCursor(sessionId, position);
       });
 
-      // Set up content change listener with improved logic
+      // Set up content change listener - send immediately
       editor.onDidChangeModelContent((e: any) => {
         const changes = e.changes;
 
         // Skip if no changes or if we're applying remote changes
         if (changes.length === 0 || isApplyingRemoteChangesRef.current) {
-          console.log(
-            "Skipping change - no changes or applying remote changes"
-          );
           return;
         }
 
-        console.log("Local content change detected:", {
-          changes: changes.length,
-          sessionId,
-          version,
-        });
-
-        // Clear any existing timeout
-        if (changeTimeoutRef.current) {
-          clearTimeout(changeTimeoutRef.current);
-        }
-
-        // Debounce the change to prevent rapid-fire events
-        changeTimeoutRef.current = setTimeout(() => {
-          const newVersion = version + 1;
-          setVersion(newVersion);
-
-          console.log("Sending local changes (debounced):", {
-            changes,
-            newVersion,
-            sessionId,
-          });
-
-          socketService.sendCodeChange(sessionId, changes, newVersion);
-
-          // Call onCodeChange if provided
-          if (onCodeChange) {
-            onCodeChange(editor.getValue());
-          }
-        }, 100); // Increased debounce time to 100ms
+        // Send changes immediately - no batching
+        sendChanges(changes, version);
       });
     },
-    [sessionId, initialCode, version, onCodeChange]
+    [sessionId, initialCode, sendChanges, version]
+  );
+
+  // Transform operations for concurrent editing
+  const transformOperation = useCallback(
+    (operation: any, otherOperation: any) => {
+      // Simple transformation logic - in production, use a library like ShareJS
+      if (!operation || !otherOperation) return operation;
+
+      const op = { ...operation };
+      const otherOp = { ...otherOperation };
+
+      // If operations don't overlap, no transformation needed
+      if (
+        op.range.endLineNumber < otherOp.range.startLineNumber ||
+        otherOp.range.endLineNumber < op.range.startLineNumber
+      ) {
+        return op;
+      }
+
+      // If other operation is before this one, adjust position
+      if (
+        otherOp.range.startLineNumber < op.range.startLineNumber ||
+        (otherOp.range.startLineNumber === op.range.startLineNumber &&
+          otherOp.range.startColumn < op.range.startColumn)
+      ) {
+        const lineDiff = otherOp.text ? otherOp.text.split("\n").length - 1 : 0;
+        const lastLineText = otherOp.text
+          ? otherOp.text.split("\n").pop() || ""
+          : "";
+
+        if (lineDiff > 0) {
+          op.range.startLineNumber += lineDiff;
+          op.range.endLineNumber += lineDiff;
+        } else if (otherOp.range.startLineNumber === op.range.startLineNumber) {
+          op.range.startColumn += lastLineText.length;
+          op.range.endColumn += lastLineText.length;
+        }
+      }
+
+      return op;
+    },
+    []
   );
 
   // Handle cursor updates from other users
@@ -165,7 +198,6 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
             c.userId === data.userId ? { ...c, position: data.position } : c
           );
         } else {
-          // Get color for new participant
           const index = participants.findIndex((p) => p.id === data.userId);
           const color = CURSOR_COLORS[index % CURSOR_COLORS.length];
 
@@ -184,53 +216,59 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     };
 
     const handleCodeChange = (data: CodeChange) => {
-      console.log(
-        "Received code change from:",
-        data.userId,
-        "Current user:",
-        currentUserIdRef.current
-      );
-
       // Only apply changes if they're from a different user
       if (data.userId === currentUserIdRef.current) {
-        console.log("Ignoring own changes");
         return;
       }
 
       if (!editorRef.current) {
-        console.log("Editor not ready");
         return;
       }
 
       const model = editorRef.current.getModel();
       if (!model) {
-        console.log("Model not available");
         return;
       }
 
-      console.log("Applying changes:", data.changes, "version:", data.version);
-
-      // Set flag to prevent feedback loop - use synchronous flag
+      // Set flag to prevent feedback loop
       isApplyingRemoteChangesRef.current = true;
 
       try {
-        // Apply remote changes directly
-        model.applyEdits(data.changes);
-        console.log("Remote changes applied successfully");
+        // Transform operations if there are pending local changes
+        let transformedChanges = data.changes;
 
-        // Update version if the incoming version is higher
+        if (pendingChangesRef.current.length > 0) {
+          transformedChanges = data.changes.map((change) => {
+            let transformedChange = change;
+            pendingChangesRef.current.forEach((pending) => {
+              pending.changes.forEach((pendingChange) => {
+                transformedChange = transformOperation(
+                  transformedChange,
+                  pendingChange
+                );
+              });
+            });
+            return transformedChange;
+          });
+        }
+
+        // Apply transformed changes
+        const edits = transformedChanges.map((change: any) => ({
+          range: change.range,
+          text: change.text,
+        }));
+
+        model.applyEdits(edits);
+
+        // Update version
         if (data.version > version) {
           setVersion(data.version);
-          console.log("Version updated to:", data.version);
         }
       } catch (error) {
         console.error("Error applying remote changes:", error);
       } finally {
-        // Reset flag immediately after applying changes
-        setTimeout(() => {
-          isApplyingRemoteChangesRef.current = false;
-          console.log("Remote changes flag reset");
-        }, 50); // Small delay to ensure Monaco events are processed
+        // Reset flag immediately
+        isApplyingRemoteChangesRef.current = false;
       }
     };
 
@@ -274,17 +312,13 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       socketService.off("userLeft");
       socketService.off("error");
     };
-  }, [sessionId, version, participants]);
+  }, [sessionId, version, participants, transformOperation]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (isConnected) {
         socketService.leaveSession(sessionId);
-      }
-      // Clear any pending timeouts
-      if (changeTimeoutRef.current) {
-        clearTimeout(changeTimeoutRef.current);
       }
     };
   }, [sessionId, isConnected]);
@@ -309,6 +343,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
             <span className="text-sm">
               {isConnected ? "Connected" : "Disconnected"}
             </span>
+            <div className="text-xs text-gray-400">v{version}</div>
           </div>
         </div>
 
@@ -355,6 +390,15 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
             renderWhitespace: "selection",
             cursorBlinking: "smooth",
             cursorSmoothCaretAnimation: "on",
+            // Disable some features that can interfere with real-time collaboration
+            quickSuggestions: false,
+            suggestOnTriggerCharacters: false,
+            acceptSuggestionOnEnter: "off",
+            tabCompletion: "off",
+            wordBasedSuggestions: false,
+            // Optimize for fast typing
+            fastScrollSensitivity: 5,
+            scrollBeyondLastColumn: 10,
           }}
         />
 
@@ -370,6 +414,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
               style={{
                 left: `${cursor.position.column * 8}px`,
                 top: `${(cursor.position.lineNumber - 1) * 20}px`,
+                zIndex: 1000,
               }}
             >
               <div
@@ -377,7 +422,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
                 style={{ backgroundColor: cursor.color }}
               ></div>
               <div
-                className="px-2 py-1 text-xs text-white rounded shadow-lg"
+                className="px-2 py-1 text-xs text-white rounded shadow-lg whitespace-nowrap"
                 style={{ backgroundColor: cursor.color }}
               >
                 {cursor.firstName} {cursor.lastName}

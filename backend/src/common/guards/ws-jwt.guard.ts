@@ -16,9 +16,6 @@ export class WsJwtGuard implements CanActivate {
       const client: Socket = context.switchToWs().getClient();
       const token = this.extractTokenFromHeader(client);
 
-      console.log('WsJwtGuard - Client ID:', client.id);
-      console.log('WsJwtGuard - Token found:', !!token);
-
       if (!token) {
         throw new WsException('Authentication token not found');
       }
@@ -27,10 +24,8 @@ export class WsJwtGuard implements CanActivate {
         const payload = await this.jwtService.verifyAsync(token, {
           secret: this.configService.get('jwt.secret'),
         });
-        console.log('WsJwtGuard - JWT payload:', payload);
 
         client.data.user = payload;
-        console.log('WsJwtGuard - User set in client.data:', client.data.user);
 
         return true;
       } catch (jwtError) {
