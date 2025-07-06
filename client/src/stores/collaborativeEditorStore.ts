@@ -88,84 +88,86 @@ const initialState = {
 };
 
 export const useCollaborativeEditorStore = create<CollaborativeEditorState>()(
-  devtools(
-    subscribeWithSelector((set, get) => ({
-      ...initialState,
+  subscribeWithSelector(
+    devtools(
+      (set, get) => ({
+        ...initialState,
 
-      setSessionId: (id: string) => set({ sessionId: id }),
+        setSessionId: (id: string) => set({ sessionId: id }),
 
-      setConnectionStatus: (connected: boolean) =>
-        set({ isConnected: connected }),
+        setConnectionStatus: (connected: boolean) =>
+          set({ isConnected: connected }),
 
-      updateVersion: (version: number) => set({ version }),
+        updateVersion: (version: number) => set({ version }),
 
-      setCurrentUserId: (userId: string) => set({ currentUserId: userId }),
+        setCurrentUserId: (userId: string) => set({ currentUserId: userId }),
 
-      setParticipants: (participants: Participant[]) => set({ participants }),
+        setParticipants: (participants: Participant[]) => set({ participants }),
 
-      updateCursors: (cursors: CursorInfo[]) => set({ cursors }),
+        updateCursors: (cursors: CursorInfo[]) => set({ cursors }),
 
-      addCursor: (cursor: CursorInfo) =>
-        set((state) => {
-          const existing = state.cursors.find(
-            (c) => c.userId === cursor.userId
-          );
-          if (existing) {
-            return {
-              cursors: state.cursors.map((c) =>
-                c.userId === cursor.userId
-                  ? { ...c, position: cursor.position }
-                  : c
-              ),
-            };
-          } else {
-            const index = state.participants.findIndex(
-              (p) => p.id === cursor.userId
+        addCursor: (cursor: CursorInfo) =>
+          set((state) => {
+            const existing = state.cursors.find(
+              (c) => c.userId === cursor.userId
             );
-            const color = CURSOR_COLORS[index % CURSOR_COLORS.length];
+            if (existing) {
+              return {
+                cursors: state.cursors.map((c) =>
+                  c.userId === cursor.userId
+                    ? { ...c, position: cursor.position }
+                    : c
+                ),
+              };
+            } else {
+              const index = state.participants.findIndex(
+                (p) => p.id === cursor.userId
+              );
+              const color = CURSOR_COLORS[index % CURSOR_COLORS.length];
 
-            return {
-              cursors: [
-                ...state.cursors,
-                {
-                  ...cursor,
-                  color,
-                },
-              ],
-            };
-          }
-        }),
+              return {
+                cursors: [
+                  ...state.cursors,
+                  {
+                    ...cursor,
+                    color,
+                  },
+                ],
+              };
+            }
+          }),
 
-      updateCursor: (userId: string, position: CursorPosition) =>
-        set((state) => ({
-          cursors: state.cursors.map((c) =>
-            c.userId === userId ? { ...c, position } : c
-          ),
-        })),
+        updateCursor: (userId: string, position: CursorPosition) =>
+          set((state) => ({
+            cursors: state.cursors.map((c) =>
+              c.userId === userId ? { ...c, position } : c
+            ),
+          })),
 
-      removeCursor: (userId: string) =>
-        set((state) => ({
-          cursors: state.cursors.filter((c) => c.userId !== userId),
-        })),
+        removeCursor: (userId: string) =>
+          set((state) => ({
+            cursors: state.cursors.filter((c) => c.userId !== userId),
+          })),
 
-      clearCursors: () => set({ cursors: [] }),
+        clearCursors: () => set({ cursors: [] }),
 
-      setApplyingRemoteChanges: (applying: boolean) =>
-        set({ isApplyingRemoteChanges: applying }),
+        setApplyingRemoteChanges: (applying: boolean) =>
+          set({ isApplyingRemoteChanges: applying }),
 
-      addPendingChange: (change: PendingChange) =>
-        set((state) => ({
-          pendingChanges: [...state.pendingChanges, change],
-        })),
+        addPendingChange: (change: PendingChange) =>
+          set((state) => ({
+            pendingChanges: [...state.pendingChanges, change],
+          })),
 
-      clearPendingChanges: () => set({ pendingChanges: [] }),
+        clearPendingChanges: () => set({ pendingChanges: [] }),
 
-      updateLastSentVersion: (version: number) =>
-        set({ lastSentVersion: version }),
+        updateLastSentVersion: (version: number) =>
+          set({ lastSentVersion: version }),
 
-      reset: () => set(initialState),
-    })),
-    { name: "collaborative-editor-store" }
+        reset: () => set(initialState),
+      }),
+      { name: "collaborative-editor-store" }
+    )
   )
 );
 

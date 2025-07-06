@@ -32,7 +32,7 @@ export const createDevtoolsMiddleware = (storeName: string) =>
         set(partial, replace as any);
         // Log state changes in development
         if (process.env.NODE_ENV === "development") {
-          console.log(`[${storeName}] State updated:`, get());
+          // console.log(`[${storeName}] State updated:`, get());
         }
       },
       get,

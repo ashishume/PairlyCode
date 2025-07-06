@@ -120,7 +120,7 @@ class SocketService {
       throw new Error("Socket not connected");
     }
 
-    // console.log("Socket service joining session:", sessionId);
+    console.log("Socket service joining session:", sessionId);
     this.socket.emit("joinSession", { sessionId });
   }
 
@@ -285,6 +285,11 @@ class SocketService {
   ping() {
     if (!this.socket) return;
     this.socket.emit("ping", { timestamp: Date.now() });
+  }
+
+  onPong(callback: (data: { timestamp: number; serverTime: number }) => void) {
+    if (!this.socket) return;
+    this.socket.on("pong", callback);
   }
 }
 

@@ -64,7 +64,13 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   useEffect(() => {
     setSessionId(sessionId);
     setParticipants(participants);
-  }, [sessionId, participants, setSessionId, setParticipants]);
+
+    // Join the session via WebSocket
+    if (sessionId && isConnected) {
+      // console.log("Joining session:", sessionId);
+      socketService.joinSession(sessionId);
+    }
+  }, [sessionId, participants, setSessionId, setParticipants, isConnected]);
 
   // Monitor socket connection state
   useEffect(() => {
@@ -133,6 +139,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
           return;
         }
 
+        // console.log("Sending code changes:", { changes, version, sessionId });
         // Send changes immediately - no batching
         sendChanges(changes, version);
       });
@@ -203,7 +210,11 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       position: CursorPosition;
     }) => {
       // Don't show our own cursor
-      if (data.userId === currentUserId) {
+      // Convert both to strings for comparison to handle ObjectId vs string differences
+      const dataUserIdStr = String(data.userId);
+      const currentUserIdStr = String(currentUserId);
+
+      if (dataUserIdStr === currentUserIdStr) {
         return;
       }
 
@@ -218,16 +229,22 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
 
     const handleCodeChange = (data: CodeChange) => {
       // Only apply changes if they're from a different user
-      if (data.userId === currentUserId) {
+      // Convert both to strings for comparison to handle ObjectId vs string differences
+      const dataUserIdStr = String(data.userId);
+      const currentUserIdStr = String(currentUserId);
+
+      if (dataUserIdStr === currentUserIdStr) {
         return;
       }
 
       if (!editorRef.current) {
+        console.log("Editor not ready");
         return;
       }
 
       const model = editorRef.current.getModel();
       if (!model) {
+        console.log("Model not ready");
         return;
       }
 
@@ -275,7 +292,11 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
 
     const handleCodeUpdate = (data: CodeUpdate) => {
       // Only apply updates if they're from a different user
-      if (data.userId === currentUserId) {
+      // Convert both to strings for comparison to handle ObjectId vs string differences
+      const dataUserIdStr = String(data.userId);
+      const currentUserIdStr = String(currentUserId);
+
+      if (dataUserIdStr === currentUserIdStr) {
         return;
       }
 
@@ -301,7 +322,17 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       user: any;
       participants: Participant[];
     }) => {
+      console.log("User joined:", data);
       // Update participants if needed
+      setParticipants(data.participants);
+    };
+
+    const handleSessionJoined = (data: {
+      session: any;
+      participants: Participant[];
+    }) => {
+      console.log("Session joined:", data);
+      // Update participants when we join the session
       setParticipants(data.participants);
     };
 
@@ -322,14 +353,17 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     socketService.off("codeChanged");
     socketService.off("codeUpdated");
     socketService.off("userJoined");
+    socketService.off("sessionJoined");
     socketService.off("userLeft");
     socketService.off("error");
 
     // Set up socket listeners
+    console.log("Setting up socket listeners for session:", sessionId);
     socketService.onCursorUpdated(handleCursorUpdate);
     socketService.onCodeChanged(handleCodeChange);
     socketService.onCodeUpdated(handleCodeUpdate);
     socketService.onUserJoined(handleUserJoined);
+    socketService.onSessionJoined(handleSessionJoined);
     socketService.onUserLeft(handleUserLeft);
     socketService.onError(handleError);
 
@@ -338,6 +372,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       socketService.off("codeChanged");
       socketService.off("codeUpdated");
       socketService.off("userJoined");
+      socketService.off("sessionJoined");
       socketService.off("userLeft");
       socketService.off("error");
     };

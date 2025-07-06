@@ -187,7 +187,11 @@ export class SessionsService {
   }
 
   async updateSessionCode(sessionId: string, code: string): Promise<void> {
+    // console.log('Service: Updating session code for sessionId:', sessionId);
+    // console.log('Service: Code to save:', code);
+    // console.log('Service: Code length:', code?.length);
     await this.sessionModel.findByIdAndUpdate(sessionId, { code }).exec();
+    // console.log('Service: Code update completed');
   }
 
   async getActiveParticipants(

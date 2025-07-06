@@ -1,6 +1,7 @@
 import React, { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { CollaborativeEditor } from "../components/CollaborativeEditor";
+import { ConnectionTest } from "../components/ConnectionTest";
 import { socketService } from "../services/socket.service";
 import { apiService } from "../services/api.service";
 import type { Session, Participant, User } from "../services/socket.service";
@@ -30,6 +31,13 @@ export const ActiveSession: React.FC = () => {
   const error = useSessionError();
   const isAuthenticated = useIsAuthenticated();
   const user = useUser();
+
+  // Debug logging - must be before any conditional returns
+  useEffect(() => {
+    console.log("Current session in ActiveSession:", currentSession);
+    console.log("Session _id being passed:", currentSession?._id);
+    console.log("Session id being passed:", currentSession?.id);
+  }, [currentSession]);
 
   // Check if user is authenticated
   useEffect(() => {
@@ -70,6 +78,7 @@ export const ActiveSession: React.FC = () => {
 
       const session = await apiService.getSession(sessionId);
       setCurrentSession(session);
+      console.log("Session loaded:", session);
 
       // Join the session via WebSocket
       socketService.joinSession(sessionId);
@@ -137,6 +146,9 @@ export const ActiveSession: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-gray-900">
+      {/* Connection Test */}
+      {/* <ConnectionTest /> */}
+
       {/* Header */}
       <div className="bg-gray-800 text-white p-4 border-b border-gray-700">
         <div className="flex items-center justify-between">
@@ -173,7 +185,7 @@ export const ActiveSession: React.FC = () => {
       {/* Editor */}
       <div className="flex-1">
         <CollaborativeEditor
-          sessionId={currentSession.id || ""}
+          sessionId={currentSession._id || ""}
           initialCode={currentSession.code || "// Start coding here...\n"}
           language={currentSession.language || "javascript"}
           participants={currentSession.participants || []}

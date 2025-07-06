@@ -35,49 +35,51 @@ const initialState = {
 };
 
 export const useSessionStore = create<SessionState>()(
-  devtools(
-    subscribeWithSelector((set, get) => ({
-      ...initialState,
+  subscribeWithSelector(
+    devtools(
+      (set, get) => ({
+        ...initialState,
 
-      setCurrentSession: (session: Session | null) =>
-        set({ currentSession: session }),
+        setCurrentSession: (session: Session | null) =>
+          set({ currentSession: session }),
 
-      setSessions: (sessions: Session[]) => set({ sessions }),
+        setSessions: (sessions: Session[]) => set({ sessions }),
 
-      addSession: (session: Session) =>
-        set((state) => ({
-          sessions: [...state.sessions, session],
-        })),
+        addSession: (session: Session) =>
+          set((state) => ({
+            sessions: [...state.sessions, session],
+          })),
 
-      updateSession: (sessionId: string, updates: Partial<Session>) =>
-        set((state) => ({
-          sessions: state.sessions.map((session) =>
-            session.id === sessionId ? { ...session, ...updates } : session
-          ),
-          currentSession:
-            state.currentSession?.id === sessionId
-              ? { ...state.currentSession, ...updates }
-              : state.currentSession,
-        })),
+        updateSession: (sessionId: string, updates: Partial<Session>) =>
+          set((state) => ({
+            sessions: state.sessions.map((session) =>
+              session.id === sessionId ? { ...session, ...updates } : session
+            ),
+            currentSession:
+              state.currentSession?.id === sessionId
+                ? { ...state.currentSession, ...updates }
+                : state.currentSession,
+          })),
 
-      removeSession: (sessionId: string) =>
-        set((state) => ({
-          sessions: state.sessions.filter(
-            (session) => session.id !== sessionId
-          ),
-          currentSession:
-            state.currentSession?.id === sessionId
-              ? null
-              : state.currentSession,
-        })),
+        removeSession: (sessionId: string) =>
+          set((state) => ({
+            sessions: state.sessions.filter(
+              (session) => session.id !== sessionId
+            ),
+            currentSession:
+              state.currentSession?.id === sessionId
+                ? null
+                : state.currentSession,
+          })),
 
-      setLoading: (loading: boolean) => set({ loading }),
+        setLoading: (loading: boolean) => set({ loading }),
 
-      setError: (error: string | null) => set({ error }),
+        setError: (error: string | null) => set({ error }),
 
-      reset: () => set(initialState),
-    })),
-    { name: "session-store" }
+        reset: () => set(initialState),
+      }),
+      { name: "session-store" }
+    )
   )
 );
 
