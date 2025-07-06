@@ -295,18 +295,25 @@ export class SessionsGateway
     @MessageBody() data: UpdateCodeData,
   ) {
     try {
-      // console.log('Update code request:', { clientId: client.id, data });
+      console.log('Update code request received:', {
+        clientId: client.id,
+        data: { ...data, code: data.code.substring(0, 100) + '...' },
+      });
 
       const user = client.data.user;
       if (!user) {
-        // console.log('No user found for code update');
+        console.log('No user found for code update');
         return;
       }
 
       const { sessionId, code, userId } = data;
-      // console.log({ userId });
+      console.log('Processing updateCode:', {
+        sessionId,
+        userId,
+        codeLength: code.length,
+      });
       if (!sessionId) {
-        // console.log('No sessionId provided in code update');
+        console.log('No sessionId provided in code update');
         return;
       }
 
@@ -328,6 +335,14 @@ export class SessionsGateway
         code,
       };
 
+      console.log('Emitting codeUpdated event to room:', sessionId, {
+        userId,
+        firstName: fullUser.firstName,
+        lastName: fullUser.lastName,
+        codeLength: code.length,
+        roomClients:
+          this.server.sockets.adapter.rooms.get(sessionId)?.size || 0,
+      });
       client.to(sessionId).emit('codeUpdated', codeUpdateData);
     } catch (error) {
       console.error('Error handling code update:', error);

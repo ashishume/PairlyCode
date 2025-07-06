@@ -186,7 +186,7 @@ export const ActiveSession: React.FC = () => {
           language={currentSession.language || "javascript"}
           initialCode={
             currentSession.code ||
-            "// Welcome to your collaborative coding session!\n// Start coding with your team...\n\nfunction hello() {\n  console.log('Hello, World!');\n}"
+            "// Welcome to your collaborative coding session!\n// Start coding with your team..."
           }
         />
       </div>

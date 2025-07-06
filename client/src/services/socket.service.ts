@@ -55,6 +55,8 @@ class SocketService {
   private socket: Socket | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 5;
+  private registeredListeners = new Set<string>();
+  private callbacks: { [key: string]: Function[] } = {};
 
   connect(token: string) {
     this.socket = io(import.meta.env.VITE_API_URL || "http://localhost:3000", {
@@ -67,12 +69,12 @@ class SocketService {
     });
 
     this.socket.on("connect", () => {
-      console.log("Connected to server with ID:", this.socket?.id);
+      // console.log("Connected to server with ID:", this.socket?.id);
       this.reconnectAttempts = 0;
     });
 
     this.socket.on("disconnect", (reason) => {
-      console.log("Disconnected from server:", reason);
+      // console.log("Disconnected from server:", reason);
       if (reason === "io server disconnect") {
         // Server disconnected, try to reconnect
         this.handleReconnect();
@@ -90,16 +92,16 @@ class SocketService {
 
     // Add debug logging for all events
     this.socket.onAny((event, ...args) => {
-      // console.log(`Socket event received: ${event}`, args);
+      console.log(`Socket event received: ${event}`, args);
     });
   }
 
   private handleReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      console.log(
-        `Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`
-      );
+      // console.log(
+      //   `Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`
+      // );
       setTimeout(() => {
         this.socket?.connect();
       }, 1000 * this.reconnectAttempts);
@@ -118,7 +120,7 @@ class SocketService {
       throw new Error("Socket not connected");
     }
 
-    console.log("Socket service joining session:", sessionId);
+    // console.log("Socket service joining session:", sessionId);
     this.socket.emit("joinSession", { sessionId });
   }
 
@@ -127,7 +129,7 @@ class SocketService {
       throw new Error("Socket not connected");
     }
 
-    console.log("Socket service leaving session:", sessionId);
+    // console.log("Socket service leaving session:", sessionId);
     this.socket.emit("leaveSession", { sessionId });
   }
 
@@ -211,10 +213,41 @@ class SocketService {
   }
 
   onCodeUpdated(callback: (data: CodeUpdate) => void) {
-    if (!this.socket) return;
-    this.socket.on("codeUpdated", (data) => {
-      callback(data);
-    });
+    // console.log("onCodeUpdated method called");
+    if (!this.socket) {
+      // console.log("Socket not available for codeUpdated listener");
+      return;
+    }
+
+    const eventName = "codeUpdated";
+    // console.log("Event name:", eventName);
+    // console.log("Registered listeners:", Array.from(this.registeredListeners));
+
+    // Store the callback
+    if (!this.callbacks[eventName]) {
+      this.callbacks[eventName] = [];
+    }
+    this.callbacks[eventName].push(callback);
+    // console.log(
+    //   "Callbacks for",
+    //   eventName,
+    //   ":",
+    //   this.callbacks[eventName].length
+    // );
+
+    // Only register the socket listener once
+    if (!this.registeredListeners.has(eventName)) {
+      // console.log("Registering codeUpdated listener");
+      this.socket!.on(eventName, (data) => {
+        // console.log("codeUpdated event received:", data);
+        // Call all registered callbacks
+        this.callbacks[eventName].forEach((cb) => cb(data));
+      });
+      this.registeredListeners.add(eventName);
+      // console.log("codeUpdated listener added to registeredListeners");
+    } else {
+      // console.log("codeUpdated listener already registered, adding callback");
+    }
   }
 
   onError(callback: (data: { message: string }) => void) {
@@ -223,8 +256,14 @@ class SocketService {
   }
 
   off(event: string) {
-    if (!this.socket) return;
+    if (!this.socket) {
+      // console.log("Socket not available for off:", event);
+      return;
+    }
+    // console.log("Removing listener for event:", event);
     this.socket.off(event);
+    this.registeredListeners.delete(event);
+    delete this.callbacks[event];
   }
 
   // Remove all listeners for a specific event

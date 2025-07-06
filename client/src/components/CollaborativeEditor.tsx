@@ -14,7 +14,7 @@ interface CollaborativeEditorProps {
   initialCode?: string;
   language?: string;
   participants: Participant[];
-  onCodeChange?: (code: string) => void;
+  // Removed onCodeChange to prevent infinite loops
 }
 
 interface CursorInfo {
@@ -47,7 +47,6 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   initialCode = "// Start coding here...\n",
   language = "javascript",
   participants,
-  onCodeChange,
 }) => {
   const editorRef = useRef<any>(null);
   const [cursors, setCursors] = useState<CursorInfo[]>([]);
@@ -59,6 +58,28 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   const currentUserIdRef = useRef<string | null>(null);
   const pendingChangesRef = useRef<PendingChange[]>([]);
   const lastSentVersionRef = useRef(0);
+
+  // Monitor socket connection state
+  useEffect(() => {
+    const checkConnection = () => {
+      const connected = socketService.isConnected();
+      setIsConnected(connected);
+      // console.log("Socket connection state:", connected);
+    };
+
+    // Check immediately
+    checkConnection();
+
+    // Set up interval to monitor connection
+    const interval = setInterval(checkConnection, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  // Debug: Log when isConnected changes
+  useEffect(() => {
+    // console.log("isConnected changed to:", isConnected);
+  }, [isConnected]);
 
   // Initialize current user ID once
   useEffect(() => {
@@ -83,12 +104,10 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
 
       socketService.sendCodeChange(sessionId, changes, newVersion);
 
-      // Call onCodeChange if provided
-      if (onCodeChange && editorRef.current) {
-        onCodeChange(editorRef.current.getValue());
-      }
+      // Don't call onCodeChange here to prevent infinite loops
+      // onCodeChange should only be called for specific local changes, not all changes
     },
-    [sessionId, onCodeChange]
+    [sessionId]
   );
 
   // Create a stable mount handler
@@ -170,6 +189,12 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
 
   // Handle cursor updates from other users
   useEffect(() => {
+    // Only set up listeners if socket is connected
+    if (!socketService.isConnected()) {
+      // console.log("Socket not connected, skipping listener setup");
+      return;
+    }
+
     const handleCursorUpdate = (data: {
       userId: string;
       firstName: string;
@@ -263,12 +288,15 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     };
 
     const handleCodeUpdate = (data: CodeUpdate) => {
+      // console.log("handleCodeUpdate called with data:", data);
       // Only apply updates if they're from a different user
       if (data.userId === currentUserIdRef.current) {
+        // console.log("Ignoring code update from self");
         return;
       }
 
       if (!editorRef.current) {
+        // console.log("Editor ref not available");
         return;
       }
 
@@ -279,10 +307,8 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
         // Replace the entire content with the new code
         editorRef.current.setValue(data.code);
 
-        // Call onCodeChange if provided
-        if (onCodeChange) {
-          onCodeChange(data.code);
-        }
+        // DON'T call onCodeChange for remote updates - this prevents infinite loops
+        // onCodeChange should only be called for local changes
       } catch (error) {
         console.error("Error applying code update:", error);
       } finally {
@@ -334,7 +360,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       socketService.off("userLeft");
       socketService.off("error");
     };
-  }, [sessionId, version, participants, transformOperation]);
+  }, [sessionId, version, participants, transformOperation, isConnected]);
 
   // Cleanup on unmount
   useEffect(() => {
