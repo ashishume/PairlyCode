@@ -8,7 +8,6 @@ import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
 import { SessionListPage } from "./pages/SessionList";
 import { ActiveSession } from "./pages/ActiveSession";
-import "./App.scss";
 
 function App() {
   return (
