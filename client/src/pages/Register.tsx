@@ -12,6 +12,7 @@ import {
   Users,
 } from "lucide-react";
 import { InputField } from "../components/ui/InputField";
+import { useAuthStore, useAuthLoading, useAuthError } from "../stores";
 
 export const Register: React.FC = () => {
   const [formData, setFormData] = useState({
@@ -23,10 +24,15 @@ export const Register: React.FC = () => {
   });
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState("");
   const [isVisible, setIsVisible] = useState(false);
   const navigate = useNavigate();
+
+  // Zustand store state
+  const { login, setLoading, setError } = useAuthStore();
+
+  // Zustand selectors
+  const loading = useAuthLoading();
+  const error = useAuthError();
 
   useEffect(() => {
     setIsVisible(true);
@@ -73,10 +79,8 @@ export const Register: React.FC = () => {
         password: formData.password,
       });
 
-      // Store auth data
-      localStorage.setItem("token", response.access_token);
-      localStorage.setItem("user", JSON.stringify(response.user));
-      localStorage.setItem("userId", response.user.id);
+      // Use Zustand store to handle login
+      login(response.user, response.access_token);
 
       // Redirect to pair programming
       navigate("/pair-programming");
@@ -88,41 +92,25 @@ export const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen relative overflow-hidden bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
-      {/* Animated background elements */}
+    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center p-4">
+      {/* Background decoration */}
       <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-40 left-40 w-80 h-80 bg-pink-500 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
-
-      {/* Floating particles */}
-      <div className="absolute inset-0">
-        {[...Array(8)].map((_, i) => (
-          <div
-            key={i}
-            className="absolute w-2 h-2 bg-white rounded-full opacity-20 animate-pulse"
-            style={{
-              left: `${Math.random() * 100}%`,
-              top: `${Math.random() * 100}%`,
-              animationDelay: `${i * 0.3}s`,
-              animationDuration: `${2 + Math.random() * 2}s`,
-            }}
-          />
-        ))}
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl"></div>
+        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-full blur-3xl"></div>
       </div>
 
       <div className="relative z-10 min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div
-          className={`max-w-lg w-full space-y-8 transform transition-all duration-1000 ease-out ${
+          className={`max-w-md w-full space-y-8 transform transition-all duration-1000 ease-out ${
             isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
           }`}
         >
           {/* Header */}
           <div className="text-center space-y-4">
             <div className="flex justify-center items-center space-x-2 mb-6">
-              <div className="p-3 bg-gradient-to-r from-green-500 to-blue-600 rounded-xl shadow-lg">
-                <Users className="h-8 w-8 text-white" />
+              <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-lg">
+                <Code className="h-8 w-8 text-white" />
               </div>
               <div className="flex items-center space-x-1">
                 <Sparkles className="h-6 w-6 text-yellow-400 animate-pulse" />
@@ -235,15 +223,19 @@ export const Register: React.FC = () => {
               <button
                 type="submit"
                 disabled={loading}
-                className="group relative w-full flex justify-center py-4 px-6 border border-transparent text-lg font-semibold rounded-xl text-white bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:opacity-50 disabled:cursor-not-allowed transform transition-all duration-200 hover:scale-[1.02] active:scale-[0.98] shadow-lg hover:shadow-xl"
+                className={`w-full py-4 px-6 rounded-2xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500/30 ${
+                  loading
+                    ? "bg-gray-600 text-gray-300 cursor-not-allowed"
+                    : "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl"
+                }`}
               >
                 {loading ? (
-                  <div className="flex items-center space-x-2">
+                  <div className="flex items-center justify-center space-x-2">
                     <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
                     <span>Creating account...</span>
                   </div>
                 ) : (
-                  <span>Create account</span>
+                  "Create Account"
                 )}
               </button>
             </form>
