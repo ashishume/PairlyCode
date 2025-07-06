@@ -34,6 +34,25 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   participants,
 }) => {
   const editorRef = useRef<any>(null);
+  const lastAppliedChangeRef = useRef<string>("");
+  const isApplyingRemoteChangesRef = useRef(false);
+  const lastLocalChangeRef = useRef<string>("");
+  const changeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const changeHistoryRef = useRef<Set<string>>(new Set());
+  const pendingLocalChangesRef = useRef<any[]>([]);
+
+  // Helper function to create a hash of changes
+  const createChangeHash = useCallback((changes: any[], userId: string) => {
+    const changeString = JSON.stringify(
+      changes.map((change) => ({
+        range: change.range,
+        text: change.text,
+        userId,
+      }))
+    );
+    const hash = btoa(changeString).slice(0, 16);
+    return hash;
+  }, []);
 
   // Zustand store state
   const {
@@ -98,17 +117,75 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     }
   }, [setCurrentUserId]);
 
-  // Send changes immediately - no batching for now
+  // Send changes with batching instead of debouncing
   const sendChanges = useCallback(
     (changes: any[], currentVersion: number) => {
-      const newVersion = currentVersion + 1;
+      try {
+        // Don't send if we're currently applying remote changes
+        if (isApplyingRemoteChangesRef.current) {
+          return;
+        }
 
-      updateVersion(newVersion);
-      updateLastSentVersion(newVersion);
+        // Add changes to pending batch
+        pendingLocalChangesRef.current.push(...changes);
 
-      socketService.sendCodeChange(sessionId, changes, newVersion);
+        // Clear any existing timeout
+        if (changeTimeoutRef.current) {
+          clearTimeout(changeTimeoutRef.current);
+        }
+
+        // Batch the changes and send after a short delay
+        changeTimeoutRef.current = setTimeout(() => {
+          const batchedChanges = [...pendingLocalChangesRef.current];
+          pendingLocalChangesRef.current = []; // Clear the batch
+
+          // Use current version from store, not the captured version
+          const currentStoreVersion = version;
+
+          if (batchedChanges.length === 0) {
+            return;
+          }
+
+          // Create a hash for the batched changes
+          const changeHash = createChangeHash(
+            batchedChanges,
+            currentUserId || ""
+          );
+
+          // Skip if this is our own change that we've already sent
+          // TEMPORARILY DISABLED FOR DEBUGGING
+          // if (lastLocalChangeRef.current === changeHash) {
+          //   console.log("❌ Skipping send - already sent this change");
+          //   return;
+          // }
+
+          const newVersion = currentStoreVersion + 1;
+          updateVersion(newVersion);
+          updateLastSentVersion(newVersion);
+
+          // Track this as our last sent change
+          // TEMPORARILY DISABLED FOR DEBUGGING
+          // lastLocalChangeRef.current = changeHash;
+
+          // Clean up old history entries (keep last 50)
+          if (changeHistoryRef.current.size > 50) {
+            const entries = Array.from(changeHistoryRef.current);
+            changeHistoryRef.current = new Set(entries.slice(-50));
+          }
+
+          socketService.sendCodeChange(sessionId, batchedChanges, newVersion);
+        }, 50); // 50ms batching delay
+      } catch (error) {
+        console.error("🔥 Error in sendChanges:", error);
+      }
     },
-    [sessionId, updateVersion, updateLastSentVersion]
+    [
+      sessionId,
+      updateVersion,
+      updateLastSentVersion,
+      currentUserId,
+      createChangeHash,
+    ]
   );
 
   // Create a stable mount handler
@@ -131,16 +208,17 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
         socketService.updateCursor(sessionId, position);
       });
 
-      // Set up content change listener - send immediately
+      // Set up content change listener with batching
       editor.onDidChangeModelContent((e: any) => {
         const changes = e.changes;
+
         // Skip if no changes or if we're applying remote changes
-        if (changes.length === 0 || isApplyingRemoteChanges) {
+        if (changes.length === 0 || isApplyingRemoteChangesRef.current) {
           return;
         }
 
         // console.log("Sending code changes:", { changes, version, sessionId });
-        // Send changes immediately - no batching
+        // Send changes with batching
         sendChanges(changes, version);
       });
     },
@@ -149,7 +227,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       initialCode,
       sendChanges,
       version,
-      isApplyingRemoteChanges,
+      currentUserId,
       setConnectionStatus,
     ]
   );
@@ -196,14 +274,9 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     []
   );
 
-  // Handle cursor updates from other users
-  useEffect(() => {
-    // Only set up listeners if socket is connected
-    if (!socketService.isConnected()) {
-      return;
-    }
-
-    const handleCursorUpdate = (data: {
+  // Create stable event handlers using useCallback
+  const handleCursorUpdate = useCallback(
+    (data: {
       userId: string;
       firstName: string;
       lastName: string;
@@ -225,9 +298,12 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
         position: data.position,
         color: "", // Color will be set by the store
       });
-    };
+    },
+    [currentUserId, addCursor]
+  );
 
-    const handleCodeChange = (data: CodeChange) => {
+  const handleCodeChange = useCallback(
+    (data: CodeChange) => {
       // Only apply changes if they're from a different user
       // Convert both to strings for comparison to handle ObjectId vs string differences
       const dataUserIdStr = String(data.userId);
@@ -238,17 +314,26 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       }
 
       if (!editorRef.current) {
-        console.log("Editor not ready");
         return;
       }
 
       const model = editorRef.current.getModel();
       if (!model) {
-        console.log("Model not ready");
         return;
       }
 
+      // Create a hash for this incoming change
+      const incomingChangeHash = createChangeHash(data.changes, data.userId);
+
+      // Skip if this change has already been processed
+      // TEMPORARILY DISABLED FOR DEBUGGING
+      // if (changeHistoryRef.current.has(incomingChangeHash)) {
+      //   console.log("Change already processed, skipping");
+      //   return;
+      // }
+
       // Set flag to prevent feedback loop
+      isApplyingRemoteChangesRef.current = true;
       setApplyingRemoteChanges(true);
 
       try {
@@ -282,15 +367,34 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
         if (data.version > version) {
           updateVersion(data.version);
         }
+
+        // Add to history AFTER successful application to prevent re-processing
+        // TEMPORARILY DISABLED FOR DEBUGGING
+        // changeHistoryRef.current.add(incomingChangeHash);
       } catch (error) {
         console.error("Error applying remote changes:", error);
+        // Don't add to history if there was an error
       } finally {
-        // Reset flag immediately
-        setApplyingRemoteChanges(false);
+        // Reset flag after a small delay to ensure the editor has finished processing
+        setTimeout(() => {
+          isApplyingRemoteChangesRef.current = false;
+          setApplyingRemoteChanges(false);
+        }, 50);
       }
-    };
+    },
+    [
+      currentUserId,
+      createChangeHash,
+      setApplyingRemoteChanges,
+      pendingChanges,
+      transformOperation,
+      version,
+      updateVersion,
+    ]
+  );
 
-    const handleCodeUpdate = (data: CodeUpdate) => {
+  const handleCodeUpdate = useCallback(
+    (data: CodeUpdate) => {
       // Only apply updates if they're from a different user
       // Convert both to strings for comparison to handle ObjectId vs string differences
       const dataUserIdStr = String(data.userId);
@@ -304,49 +408,76 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
         return;
       }
 
+      // Create a hash for this code update
+      const updateHash = btoa(
+        JSON.stringify({
+          code: data.code,
+          userId: data.userId,
+        })
+      ).slice(0, 16);
+
+      // Skip if this update has already been processed
+      if (changeHistoryRef.current.has(updateHash)) {
+        return;
+      }
+
       // Set flag to prevent feedback loop
+      isApplyingRemoteChangesRef.current = true;
       setApplyingRemoteChanges(true);
 
       try {
         // Replace the entire content with the new code
         editorRef.current.setValue(data.code);
+
+        // Add to history AFTER successful application to prevent re-processing
+        changeHistoryRef.current.add(updateHash);
       } catch (error) {
         console.error("Error applying code update:", error);
+        // Don't add to history if there was an error
       } finally {
-        // Reset flag immediately
-        setApplyingRemoteChanges(false);
+        // Reset flag after a small delay to ensure the editor has finished processing
+        setTimeout(() => {
+          isApplyingRemoteChangesRef.current = false;
+          setApplyingRemoteChanges(false);
+        }, 50);
       }
-    };
+    },
+    [currentUserId, setApplyingRemoteChanges]
+  );
 
-    const handleUserJoined = (data: {
-      user: any;
-      participants: Participant[];
-    }) => {
-      console.log("User joined:", data);
+  const handleUserJoined = useCallback(
+    (data: { user: any; participants: Participant[] }) => {
       // Update participants if needed
       setParticipants(data.participants);
-    };
+    },
+    [setParticipants]
+  );
 
-    const handleSessionJoined = (data: {
-      session: any;
-      participants: Participant[];
-    }) => {
-      console.log("Session joined:", data);
+  const handleSessionJoined = useCallback(
+    (data: { session: any; participants: Participant[] }) => {
       // Update participants when we join the session
       setParticipants(data.participants);
-    };
+    },
+    [setParticipants]
+  );
 
-    const handleUserLeft = (data: {
-      userId: string;
-      firstName: string;
-      lastName: string;
-    }) => {
+  const handleUserLeft = useCallback(
+    (data: { userId: string; firstName: string; lastName: string }) => {
       removeCursor(data.userId);
-    };
+    },
+    [removeCursor]
+  );
 
-    const handleError = (data: { message: string }) => {
-      console.error("Socket error:", data.message);
-    };
+  const handleError = useCallback((data: { message: string }) => {
+    console.error("Socket error:", data.message);
+  }, []);
+
+  // Handle socket event listeners - only set up when sessionId changes or connection status changes
+  useEffect(() => {
+    // Only set up listeners if socket is connected
+    if (!isConnected) {
+      return;
+    }
 
     // Clean up existing listeners first
     socketService.off("cursorUpdated");
@@ -358,7 +489,6 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     socketService.off("error");
 
     // Set up socket listeners
-    console.log("Setting up socket listeners for session:", sessionId);
     socketService.onCursorUpdated(handleCursorUpdate);
     socketService.onCodeChanged(handleCodeChange);
     socketService.onCodeUpdated(handleCodeUpdate);
@@ -378,21 +508,27 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     };
   }, [
     sessionId,
-    version,
-    currentUserId,
-    pendingChanges,
-    transformOperation,
     isConnected,
-    addCursor,
-    removeCursor,
-    setApplyingRemoteChanges,
-    updateVersion,
-    setParticipants,
+    handleCursorUpdate,
+    handleCodeChange,
+    handleCodeUpdate,
+    handleUserJoined,
+    handleSessionJoined,
+    handleUserLeft,
+    handleError,
   ]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
+      // Clear any pending timeouts
+      if (changeTimeoutRef.current) {
+        clearTimeout(changeTimeoutRef.current);
+      }
+
+      // Clear pending changes
+      pendingLocalChangesRef.current = [];
+
       if (isConnected) {
         socketService.leaveSession(sessionId);
       }
@@ -420,6 +556,52 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
               {isConnected ? "Connected" : "Disconnected"}
             </span>
             <div className="text-xs text-gray-400">v{version}</div>
+            <button
+              onClick={() => {
+                const testChange = {
+                  range: {
+                    startLineNumber: 1,
+                    startColumn: 1,
+                    endLineNumber: 1,
+                    endColumn: 1,
+                  },
+                  text: "// Test change\n",
+                };
+                socketService.sendCodeChange(
+                  sessionId,
+                  [testChange],
+                  version + 1
+                );
+              }}
+              className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
+            >
+              Test Send
+            </button>
+            <button
+              onClick={() => {
+                const testData = {
+                  userId: "test-user-123",
+                  firstName: "Test",
+                  lastName: "User",
+                  changes: [
+                    {
+                      range: {
+                        startLineNumber: 1,
+                        startColumn: 1,
+                        endLineNumber: 1,
+                        endColumn: 1,
+                      },
+                      text: "// Manual test\n",
+                    },
+                  ],
+                  version: version + 1,
+                };
+                handleCodeChange(testData);
+              }}
+              className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
+            >
+              Test Receive
+            </button>
           </div>
         </div>
 

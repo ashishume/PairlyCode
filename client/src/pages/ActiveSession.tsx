@@ -1,10 +1,8 @@
 import React, { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { CollaborativeEditor } from "../components/CollaborativeEditor";
-import { ConnectionTest } from "../components/ConnectionTest";
 import { socketService } from "../services/socket.service";
 import { apiService } from "../services/api.service";
-import type { Session, Participant, User } from "../services/socket.service";
 import { ArrowLeft, Settings, Users } from "lucide-react";
 import {
   useSessionStore,
@@ -31,13 +29,6 @@ export const ActiveSession: React.FC = () => {
   const error = useSessionError();
   const isAuthenticated = useIsAuthenticated();
   const user = useUser();
-
-  // Debug logging - must be before any conditional returns
-  useEffect(() => {
-    console.log("Current session in ActiveSession:", currentSession);
-    console.log("Session _id being passed:", currentSession?._id);
-    console.log("Session id being passed:", currentSession?.id);
-  }, [currentSession]);
 
   // Check if user is authenticated
   useEffect(() => {
@@ -78,7 +69,6 @@ export const ActiveSession: React.FC = () => {
 
       const session = await apiService.getSession(sessionId);
       setCurrentSession(session);
-      console.log("Session loaded:", session);
 
       // Join the session via WebSocket
       socketService.joinSession(sessionId);
