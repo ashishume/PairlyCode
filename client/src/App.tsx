@@ -6,7 +6,8 @@ import {
 } from "react-router-dom";
 import { Login } from "./pages/Login";
 import { Register } from "./pages/Register";
-import { PairProgramming } from "./pages/PairProgramming";
+import { SessionListPage } from "./pages/SessionList";
+import { ActiveSession } from "./pages/ActiveSession";
 import "./App.scss";
 
 function App() {
@@ -16,8 +17,8 @@ function App() {
         <Routes>
           <Route path="/login" element={<Login />} />
           <Route path="/register" element={<Register />} />
-          <Route path="/pair-programming" element={<PairProgramming />} />
-          <Route path="/session/:sessionId" element={<PairProgramming />} />
+          <Route path="/pair-programming" element={<SessionListPage />} />
+          <Route path="/session/:sessionId" element={<ActiveSession />} />
           <Route
             path="/"
             element={<Navigate to="/pair-programming" replace />}
