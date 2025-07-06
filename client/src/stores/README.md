@@ -119,6 +119,40 @@ function CursorOverlay() {
 
 The auth store is automatically initialized from localStorage using the `useAuthInit` hook in the main App component.
 
+## DevTools Support
+
+The application includes comprehensive DevTools support for debugging and state inspection:
+
+### Redux DevTools Extension
+
+- All stores are connected to Redux DevTools Extension
+- View state changes in real-time
+- Time-travel debugging
+- Action history and state snapshots
+- Available in browser DevTools panel
+
+### In-App DevTools Component
+
+- Press `Ctrl+Shift+D` to toggle the in-app DevTools panel
+- View current state of all stores in real-time
+- Tabbed interface for different stores (Auth, Session, Editor)
+- Only visible in development mode
+
+### Store Configuration
+
+Each store is configured with DevTools middleware:
+
+```typescript
+export const useAuthStore = create<AuthState>()(
+  devtools(
+    subscribeWithSelector((set, get) => ({
+      // store implementation
+    })),
+    { name: "auth-store" }
+  )
+);
+```
+
 ## Benefits of This Implementation
 
 1. **Centralized State Management** - All related state is managed in dedicated stores
@@ -127,6 +161,7 @@ The auth store is automatically initialized from localStorage using the `useAuth
 4. **Easy Testing** - Stores can be tested independently of React components
 5. **Developer Experience** - Built-in DevTools support and minimal boilerplate
 6. **Real-time Collaboration** - Optimized for fast updates and minimal latency
+7. **Advanced Debugging** - Comprehensive DevTools for state inspection and debugging
 
 ## Migration from Previous State Management
 

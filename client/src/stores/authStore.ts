@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
+import { devtools } from "zustand/middleware";
 
 interface User {
   id: string;
@@ -44,49 +45,52 @@ const initialState = {
 };
 
 export const useAuthStore = create<AuthState>()(
-  subscribeWithSelector((set, get) => ({
-    ...initialState,
+  devtools(
+    subscribeWithSelector((set, get) => ({
+      ...initialState,
 
-    setUser: (user: User | null) => set({ user }),
+      setUser: (user: User | null) => set({ user }),
 
-    setToken: (token: string | null) => set({ token }),
+      setToken: (token: string | null) => set({ token }),
 
-    setAuthenticated: (authenticated: boolean) =>
-      set({ isAuthenticated: authenticated }),
+      setAuthenticated: (authenticated: boolean) =>
+        set({ isAuthenticated: authenticated }),
 
-    setLoading: (loading: boolean) => set({ loading }),
+      setLoading: (loading: boolean) => set({ loading }),
 
-    setError: (error: string | null) => set({ error }),
+      setError: (error: string | null) => set({ error }),
 
-    login: (user: User, token: string) => {
-      // Store in localStorage
-      localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
-      localStorage.setItem("userId", user.id);
+      login: (user: User, token: string) => {
+        // Store in localStorage
+        localStorage.setItem("token", token);
+        localStorage.setItem("user", JSON.stringify(user));
+        localStorage.setItem("userId", user.id);
 
-      set({
-        user,
-        token,
-        isAuthenticated: true,
-        error: null,
-      });
-    },
+        set({
+          user,
+          token,
+          isAuthenticated: true,
+          error: null,
+        });
+      },
 
-    logout: () => {
-      // Clear localStorage
-      localStorage.removeItem("token");
-      localStorage.removeItem("user");
-      localStorage.removeItem("userId");
+      logout: () => {
+        // Clear localStorage
+        localStorage.removeItem("token");
+        localStorage.removeItem("user");
+        localStorage.removeItem("userId");
 
-      set({
-        user: null,
-        token: null,
-        isAuthenticated: false,
-      });
-    },
+        set({
+          user: null,
+          token: null,
+          isAuthenticated: false,
+        });
+      },
 
-    reset: () => set(initialState),
-  }))
+      reset: () => set(initialState),
+    })),
+    { name: "auth-store" }
+  )
 );
 
 // Selectors for better performance
