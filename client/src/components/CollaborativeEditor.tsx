@@ -39,6 +39,51 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   const changeHistoryRef = useRef<Set<string>>(new Set());
   const pendingLocalChangesRef = useRef<any[]>([]);
 
+  // Helper function to get cursor position in pixels from Monaco Editor
+  const getCursorPositionInPixels = useCallback(
+    (position: { lineNumber: number; column: number }) => {
+      if (!editorRef.current) {
+        return { left: 0, top: 0 };
+      }
+
+      try {
+        // Use Monaco Editor's coordinate system with better precision
+        // Monaco Editor uses 8.4px per character width and 20px line height by default
+        // Fine-tuned for better accuracy
+        const charWidth = 8.2;
+        const lineHeight = 20;
+
+        // Account for Monaco Editor's padding and scroll position
+        const editorPadding = 10;
+        const scrollLeft = editorRef.current.getScrollLeft() || 0;
+        const scrollTop = editorRef.current.getScrollTop() || 0;
+
+        return {
+          left:
+            (position.column + 1) * charWidth +
+            editorPadding -
+            scrollLeft +
+            100,
+          top:
+            (position.lineNumber + 1) * lineHeight + editorPadding - scrollTop,
+        };
+      } catch (error) {
+        console.warn("Error getting cursor position:", error);
+
+        // Fallback to calculated position with better precision
+        const charWidth = 8.4;
+        const lineHeight = 20;
+        const editorPadding = 10;
+
+        return {
+          left: (position.column + 1) * charWidth + editorPadding,
+          top: (position.lineNumber + 1) * lineHeight + editorPadding,
+        };
+      }
+    },
+    []
+  );
+
   // Helper function to create a hash of changes
   const createChangeHash = useCallback((changes: any[], userId: string) => {
     const changeString = JSON.stringify(
@@ -630,28 +675,32 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
           className="absolute top-0 left-0 pointer-events-none"
           style={{ width: "100%", height: "100%" }}
         >
-          {cursors.map((cursor) => (
-            <div
-              key={cursor.userId}
-              className="absolute transform -translate-x-1/2 -translate-y-full"
-              style={{
-                left: `${cursor.position.column * 8}px`,
-                top: `${(cursor.position.lineNumber - 1) * 20}px`,
-                zIndex: 1000,
-              }}
-            >
+          {cursors.map((cursor) => {
+            const pixelPosition = getCursorPositionInPixels(cursor.position);
+
+            return (
               <div
-                className="w-0.5 h-5"
-                style={{ backgroundColor: cursor.color }}
-              ></div>
-              <div
-                className="px-2 py-1 text-xs text-white rounded shadow-lg whitespace-nowrap"
-                style={{ backgroundColor: cursor.color }}
+                key={cursor.userId}
+                className="absolute transform -translate-x-1/2 -translate-y-full"
+                style={{
+                  left: `${pixelPosition.left}px`,
+                  top: `${pixelPosition.top}px`,
+                  zIndex: 1000,
+                }}
               >
-                {cursor.firstName} {cursor.lastName}
+                <div
+                  className="w-0.5 h-5"
+                  style={{ backgroundColor: cursor.color }}
+                ></div>
+                <div
+                  className="px-2 py-1 text-xs text-white rounded shadow-lg whitespace-nowrap"
+                  style={{ backgroundColor: cursor.color }}
+                >
+                  {cursor.firstName} {cursor.lastName}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
     </div>
