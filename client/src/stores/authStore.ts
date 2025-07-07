@@ -47,7 +47,7 @@ const initialState = {
 export const useAuthStore = create<AuthState>()(
   subscribeWithSelector(
     devtools(
-      (set, get) => ({
+      (set) => ({
         ...initialState,
 
         setUser: (user: User | null) => set({ user }),

@@ -37,7 +37,7 @@ const initialState = {
 export const useSessionStore = create<SessionState>()(
   subscribeWithSelector(
     devtools(
-      (set, get) => ({
+      (set) => ({
         ...initialState,
 
         setCurrentSession: (session: Session | null) =>

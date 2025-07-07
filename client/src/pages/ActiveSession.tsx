@@ -11,7 +11,6 @@ import {
   useSessionLoading,
   useSessionError,
   useIsAuthenticated,
-  useUser,
 } from "../stores";
 
 export const ActiveSession: React.FC = () => {
@@ -28,7 +27,6 @@ export const ActiveSession: React.FC = () => {
   const loading = useSessionLoading();
   const error = useSessionError();
   const isAuthenticated = useIsAuthenticated();
-  const user = useUser();
 
   // Check if user is authenticated
   useEffect(() => {

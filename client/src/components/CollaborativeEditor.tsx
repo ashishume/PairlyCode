@@ -15,9 +15,9 @@ import {
   useVersion,
   useCurrentUserId,
   useParticipants,
-  useIsApplyingRemoteChanges,
+  // useIsApplyingRemoteChanges,
   usePendingChanges,
-  useLastSentVersion,
+  // useLastSentVersion,
 } from "../stores";
 
 interface CollaborativeEditorProps {
@@ -34,9 +34,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   participants,
 }) => {
   const editorRef = useRef<any>(null);
-  const lastAppliedChangeRef = useRef<string>("");
   const isApplyingRemoteChangesRef = useRef(false);
-  const lastLocalChangeRef = useRef<string>("");
   const changeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const changeHistoryRef = useRef<Set<string>>(new Set());
   const pendingLocalChangesRef = useRef<any[]>([]);
@@ -65,8 +63,6 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
     setApplyingRemoteChanges,
     updateVersion,
     updateLastSentVersion,
-    addPendingChange,
-    clearPendingChanges,
   } = useCollaborativeEditorStore();
 
   // Zustand selectors
@@ -75,9 +71,9 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   const version = useVersion();
   const currentUserId = useCurrentUserId();
   const storeParticipants = useParticipants();
-  const isApplyingRemoteChanges = useIsApplyingRemoteChanges();
+  // const isApplyingRemoteChanges = useIsApplyingRemoteChanges();
   const pendingChanges = usePendingChanges();
-  const lastSentVersion = useLastSentVersion();
+  // const lastSentVersion = useLastSentVersion();
 
   // Initialize session and participants
   useEffect(() => {
@@ -119,7 +115,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
 
   // Send changes with batching instead of debouncing
   const sendChanges = useCallback(
-    (changes: any[], currentVersion: number) => {
+    (changes: any[]) => {
       try {
         // Don't send if we're currently applying remote changes
         if (isApplyingRemoteChangesRef.current) {
@@ -147,10 +143,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
           }
 
           // Create a hash for the batched changes
-          const changeHash = createChangeHash(
-            batchedChanges,
-            currentUserId || ""
-          );
+          createChangeHash(batchedChanges, currentUserId || "");
 
           // Skip if this is our own change that we've already sent
           // TEMPORARILY DISABLED FOR DEBUGGING
@@ -219,7 +212,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
 
         // console.log("Sending code changes:", { changes, version, sessionId });
         // Send changes with batching
-        sendChanges(changes, version);
+        sendChanges(changes);
       });
     },
     [
@@ -323,7 +316,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
       }
 
       // Create a hash for this incoming change
-      const incomingChangeHash = createChangeHash(data.changes, data.userId);
+      // const incomingChangeHash = createChangeHash(data.changes, data.userId);
 
       // Skip if this change has already been processed
       // TEMPORARILY DISABLED FOR DEBUGGING
@@ -556,52 +549,6 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
               {isConnected ? "Connected" : "Disconnected"}
             </span>
             <div className="text-xs text-gray-400">v{version}</div>
-            <button
-              onClick={() => {
-                const testChange = {
-                  range: {
-                    startLineNumber: 1,
-                    startColumn: 1,
-                    endLineNumber: 1,
-                    endColumn: 1,
-                  },
-                  text: "// Test change\n",
-                };
-                socketService.sendCodeChange(
-                  sessionId,
-                  [testChange],
-                  version + 1
-                );
-              }}
-              className="px-2 py-1 bg-blue-500 text-white text-xs rounded hover:bg-blue-600"
-            >
-              Test Send
-            </button>
-            <button
-              onClick={() => {
-                const testData = {
-                  userId: "test-user-123",
-                  firstName: "Test",
-                  lastName: "User",
-                  changes: [
-                    {
-                      range: {
-                        startLineNumber: 1,
-                        startColumn: 1,
-                        endLineNumber: 1,
-                        endColumn: 1,
-                      },
-                      text: "// Manual test\n",
-                    },
-                  ],
-                  version: version + 1,
-                };
-                handleCodeChange(testData);
-              }}
-              className="px-2 py-1 bg-green-500 text-white text-xs rounded hover:bg-green-600"
-            >
-              Test Receive
-            </button>
           </div>
         </div>
 

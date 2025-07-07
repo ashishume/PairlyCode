@@ -8,7 +8,7 @@ export const devtoolsConfig = {
   serialize: {
     options: {
       // Enable better serialization for complex objects
-      replacer: (key: string, value: any) => {
+      replacer: (_key: string, value: any) => {
         // Handle circular references
         if (typeof value === "object" && value !== null) {
           try {

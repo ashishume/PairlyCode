@@ -1,16 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { apiService } from "../services/api.service";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  Eye,
-  EyeOff,
-  Mail,
-  Lock,
-  User,
-  Code,
-  Sparkles,
-  Users,
-} from "lucide-react";
+import { Mail, Lock, User, Code, Sparkles } from "lucide-react";
 import { InputField } from "../components/ui/InputField";
 import { useAuthStore, useAuthLoading, useAuthError } from "../stores";
 
@@ -22,8 +13,6 @@ export const Register: React.FC = () => {
     password: "",
     confirmPassword: "",
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isVisible, setIsVisible] = useState(false);
   const navigate = useNavigate();
 

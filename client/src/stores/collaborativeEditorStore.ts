@@ -1,12 +1,7 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { devtools } from "zustand/middleware";
-import type {
-  Participant,
-  CursorPosition,
-  CodeChange,
-  CodeUpdate,
-} from "../services/socket.service";
+import type { Participant, CursorPosition } from "../services/socket.service";
 
 interface CursorInfo {
   userId: string;
@@ -90,7 +85,7 @@ const initialState = {
 export const useCollaborativeEditorStore = create<CollaborativeEditorState>()(
   subscribeWithSelector(
     devtools(
-      (set, get) => ({
+      (set) => ({
         ...initialState,
 
         setSessionId: (id: string) => set({ sessionId: id }),
