@@ -40,7 +40,15 @@ export interface CodeChange {
   userId: string;
   firstName: string;
   lastName: string;
-  code: string;
+  changes: {
+    range: {
+      startLineNumber: number;
+      startColumn: number;
+      endLineNumber: number;
+      endColumn: number;
+    };
+    text: string;
+  }[];
   version: number;
   timestamp?: number;
 }
@@ -243,38 +251,6 @@ class SocketService {
     });
   }
 
-  async sendCodeChange(
-    sessionId: string,
-    code: string,
-    version: number
-  ): Promise<{ success: boolean; error?: string; version?: number }> {
-    if (!this.socket) {
-      throw new Error("Socket not connected");
-    }
-
-    return new Promise((resolve) => {
-      this.socket!.emit(
-        "codeChange",
-        {
-          sessionId,
-          code,
-          version,
-          timestamp: Date.now(),
-        },
-        (response: any) => {
-          if (response?.success) {
-            resolve({ success: true, version: response.version });
-          } else {
-            resolve({
-              success: false,
-              error: response?.error || "Failed to send code change",
-            });
-          }
-        }
-      );
-    });
-  }
-
   async sendCodeUpdate(
     userId: string,
     sessionId: string,
@@ -304,6 +280,73 @@ class SocketService {
           }
         }
       );
+    });
+  }
+
+  async sendCodeChange(
+    sessionId: string,
+    changes: {
+      range: {
+        startLineNumber: number;
+        startColumn: number;
+        endLineNumber: number;
+        endColumn: number;
+      };
+      text: string;
+    }[],
+    version: number
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!this.socket) {
+      throw new Error("Socket not connected");
+    }
+
+    return new Promise((resolve) => {
+      this.socket!.emit(
+        "codeChange",
+        {
+          sessionId,
+          changes,
+          version,
+          timestamp: Date.now(),
+        },
+        (response: any) => {
+          if (response?.success) {
+            resolve({ success: true });
+          } else {
+            resolve({
+              success: false,
+              error: response?.error || "Failed to send code change",
+            });
+          }
+        }
+      );
+    });
+  }
+
+  async ping(): Promise<{
+    success: boolean;
+    latency?: number;
+    error?: string;
+  }> {
+    if (!this.socket) {
+      throw new Error("Socket not connected");
+    }
+
+    return new Promise((resolve) => {
+      const timestamp = Date.now();
+      this.socket!.emit("ping", { timestamp }, (response: any) => {
+        if (response?.success) {
+          resolve({
+            success: true,
+            latency: response.latency || Date.now() - timestamp,
+          });
+        } else {
+          resolve({
+            success: false,
+            error: response?.error || "Ping failed",
+          });
+        }
+      });
     });
   }
 
@@ -403,12 +446,13 @@ class SocketService {
   }
 
   onCodeChanged(callback: (data: CodeChange) => void) {
-    if (!this.socket) {
-      console.log("Socket not available for codeChanged listener");
-      return;
-    }
-
+    if (!this.socket) return;
     this.socket.on("codeChanged", callback);
+  }
+
+  onCodeUpdated(callback: (data: CodeUpdate) => void) {
+    if (!this.socket) return;
+    this.socket.on("codeUpdated", callback);
   }
 
   onError(callback: (data: { message: string }) => void) {

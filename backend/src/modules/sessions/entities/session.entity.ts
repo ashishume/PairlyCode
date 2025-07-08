@@ -25,6 +25,9 @@ export class Session {
   @Prop({ required: true })
   code: string;
 
+  @Prop({ default: 0 })
+  version: number;
+
   @Prop({ enum: SessionStatus, default: SessionStatus.ACTIVE })
   status: SessionStatus;
 

@@ -28,7 +28,15 @@ interface CursorUpdateData {
 interface CodeChangeData {
   sessionId: string;
   version: number;
-  code: string;
+  changes: {
+    range: {
+      startLineNumber: number;
+      startColumn: number;
+      endLineNumber: number;
+      endColumn: number;
+    };
+    text: string;
+  }[];
 }
 
 interface UpdateCodeData {
@@ -314,10 +322,14 @@ export class SessionsGateway
         return { success: false, error: 'Authentication required' };
       }
 
-      const { sessionId, code, version } = data;
+      const { sessionId, changes, version } = data;
 
       if (!sessionId || sessionId.trim() === '') {
         return { success: false, error: 'Session ID is required' };
+      }
+
+      if (!changes || changes.length === 0) {
+        return { success: false, error: 'Changes are required' };
       }
 
       // Get full user data from database
@@ -326,20 +338,21 @@ export class SessionsGateway
         return { success: false, error: 'User not found' };
       }
 
-      // Get current session code to apply changes
+      // Get current session to verify it exists
       const session = await this.sessionsService.findSessionById(sessionId);
       if (!session) {
         return { success: false, error: 'Session not found' };
       }
 
-      await this.sessionsService.updateSessionCode(sessionId, code);
+      // Apply incremental changes to the session
+      await this.sessionsService.applyCodeChanges(sessionId, changes, version);
 
-      // Broadcast code changes to other users in the session
+      // Broadcast incremental changes to other users in the session
       const codeChangeData = {
         userId: fullUser._id.toString(),
         firstName: fullUser.firstName,
         lastName: fullUser.lastName,
-        code,
+        changes,
         version,
         timestamp: Date.now(),
       };

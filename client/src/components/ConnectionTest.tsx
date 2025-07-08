@@ -9,10 +9,11 @@ export const ConnectionTest: React.FC = () => {
   });
   const [messages, setMessages] = useState<string[]>([]);
   const [latency, setLatency] = useState<number | null>(null);
-  const [roomInfo, setRoomInfo] = useState<{
+  const [roomInfo] = useState<{
+    success: boolean;
     roomSize?: number;
     error?: string;
-  }>({});
+  }>({ success: false });
 
   useEffect(() => {
     const checkConnection = () => {

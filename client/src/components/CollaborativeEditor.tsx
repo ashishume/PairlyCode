@@ -19,6 +19,11 @@ import {
   usePendingChanges,
   // useLastSentVersion,
 } from "../stores";
+import {
+  transformOperation as otTransformOperation,
+  transformOperations,
+  type TextOperation,
+} from "../utils/operationalTransform";
 
 interface CollaborativeEditorProps {
   sessionId: string;
@@ -211,7 +216,17 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
             changeHistoryRef.current = new Set(entries.slice(-50));
           }
 
-          // socketService.sendCodeChange(sessionId, batchedChanges, newVersion);
+          // Send the batched changes to the server
+          socketService
+            .sendCodeChange(sessionId, batchedChanges, newVersion)
+            .then((result) => {
+              if (!result.success) {
+                console.error("Failed to send code changes:", result.error);
+              }
+            })
+            .catch((error) => {
+              console.error("Error sending code changes:", error);
+            });
         }, 50); // 50ms batching delay
       } catch (error) {
         console.error("🔥 Error in sendChanges:", error);
@@ -273,41 +288,8 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
   // Transform operations for concurrent editing
   const transformOperation = useCallback(
     (operation: any, otherOperation: any) => {
-      // Simple transformation logic - in production, use a library like ShareJS
-      if (!operation || !otherOperation) return operation;
-
-      const op = { ...operation };
-      const otherOp = { ...otherOperation };
-
-      // If operations don't overlap, no transformation needed
-      if (
-        op.range.endLineNumber < otherOp.range.startLineNumber ||
-        otherOp.range.endLineNumber < op.range.startLineNumber
-      ) {
-        return op;
-      }
-
-      // If other operation is before this one, adjust position
-      if (
-        otherOp.range.startLineNumber < op.range.startLineNumber ||
-        (otherOp.range.startLineNumber === op.range.startLineNumber &&
-          otherOp.range.startColumn < op.range.startColumn)
-      ) {
-        const lineDiff = otherOp.text ? otherOp.text.split("\n").length - 1 : 0;
-        const lastLineText = otherOp.text
-          ? otherOp.text.split("\n").pop() || ""
-          : "";
-
-        if (lineDiff > 0) {
-          op.range.startLineNumber += lineDiff;
-          op.range.endLineNumber += lineDiff;
-        } else if (otherOp.range.startLineNumber === op.range.startLineNumber) {
-          op.range.startColumn += lastLineText.length;
-          op.range.endColumn += lastLineText.length;
-        }
-      }
-
-      return op;
+      // Use the new operational transformation utility
+      return otTransformOperation(operation, otherOperation);
     },
     []
   );
@@ -379,18 +361,13 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
         let transformedChanges = data.changes;
 
         if (pendingChanges.length > 0) {
-          transformedChanges = data.changes.map((change) => {
-            let transformedChange = change;
-            pendingChanges.forEach((pending) => {
-              pending.changes.forEach((pendingChange) => {
-                transformedChange = transformOperation(
-                  transformedChange,
-                  pendingChange
-                );
-              });
-            });
-            return transformedChange;
-          });
+          // Collect all pending operations
+          const allPendingOps = pendingChanges.reduce((acc, pending) => {
+            return [...acc, ...pending.changes];
+          }, [] as TextOperation[]);
+
+          // Transform incoming changes against all pending operations
+          transformedChanges = transformOperations(data.changes, allPendingOps);
         }
 
         // Apply transformed changes
