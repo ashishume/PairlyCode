@@ -11,6 +11,7 @@ import {
   useSessionError,
   useToken,
 } from "../stores";
+import { TestEditor } from "@/components/TestEditor";
 
 export const ActiveSession: React.FC = () => {
   const { sessionId: urlSessionId } = useParams<{ sessionId: string }>();
@@ -152,12 +153,13 @@ export const ActiveSession: React.FC = () => {
 
       {/* Editor */}
       <div className="flex-1">
-        <CollaborativeEditor
+        <TestEditor />
+        {/* <CollaborativeEditor
           sessionId={currentSession._id || ""}
           initialCode={currentSession.code || "// Start coding here...\n"}
           language={currentSession.language || "javascript"}
           participants={currentSession.participants || []}
-        />
+        /> */}
       </div>
     </div>
   );
