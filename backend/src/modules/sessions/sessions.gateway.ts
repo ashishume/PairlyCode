@@ -15,7 +15,6 @@ import { UsersService } from '../users/users.service';
 
 interface JoinSessionData {
   sessionId: string;
-  token: string;
 }
 
 interface CursorUpdateData {
@@ -73,14 +72,14 @@ export class SessionsGateway
     @MessageBody() data: JoinSessionData,
   ) {
     try {
-      // console.log('Join session request:', { clientId: client.id, data });
+      console.log('Join session request:', { clientId: client.id, data });
 
       // Extract user from JWT token (handled by WsJwtGuard)
       const user = client.data.user;
-      // console.log('User from JWT:', user);
+      console.log('User from JWT:', user);
 
       if (!user) {
-        // console.log('No user found in client.data');
+        console.log('No user found in client.data');
         client.emit('error', { message: 'Authentication required' });
         return;
       }
@@ -95,6 +94,7 @@ export class SessionsGateway
 
       // Join the session room
       await client.join(sessionId);
+      console.log(`Client ${client.id} joined room ${sessionId}`);
 
       // Get full user data from database
       const fullUser = await this.usersService.findOne(user.sub);
@@ -108,6 +108,9 @@ export class SessionsGateway
         sessionId,
         fullUser._id,
         client.id,
+      );
+      console.log(
+        `User ${fullUser._id} added as participant to session ${sessionId}`,
       );
 
       // Get session details
@@ -239,7 +242,7 @@ export class SessionsGateway
     @MessageBody() data: CodeChangeData,
   ) {
     try {
-      // console.log('Code change request:', { clientId: client.id, data });
+      console.log('Code change request:', { clientId: client.id, data });
 
       const user = client.data.user;
       if (!user) {
@@ -249,8 +252,14 @@ export class SessionsGateway
 
       const { sessionId, changes, version } = data;
 
-      if (!sessionId) {
-        // console.log('No sessionId provided in code change');
+      console.log('Received sessionId:', sessionId);
+      console.log('SessionId type:', typeof sessionId);
+      console.log('SessionId length:', sessionId?.length);
+
+      if (!sessionId || sessionId.trim() === '') {
+        console.log(
+          'No sessionId provided in code change or sessionId is empty',
+        );
         return;
       }
 
@@ -261,13 +270,88 @@ export class SessionsGateway
         return;
       }
 
-      // Update the session code in the database
-      // Note: This is a simplified approach. In a real implementation,
-      // you might want to apply the changes to the current code
-      // For now, we'll just update with the latest code if provided
-      if (data.code) {
-        await this.sessionsService.updateSessionCode(sessionId, data.code);
+      // Get current session code to apply changes
+      console.log('Looking for session with ID:', sessionId);
+      const session = await this.sessionsService.findSessionById(sessionId);
+      console.log('Session found:', session ? 'Yes' : 'No');
+      console.log('Session object:', session);
+
+      if (!session) {
+        console.log('Session not found, cannot update code');
+        return;
       }
+
+      let updatedCode = session.code;
+      console.log('Current session code:', updatedCode);
+      console.log('Current session code length:', updatedCode?.length);
+
+      // Apply the changes to the current code
+      console.log('Changes received:', changes);
+      console.log('Changes length:', changes?.length);
+      console.log('Changes type:', typeof changes);
+
+      if (changes && changes.length > 0) {
+        console.log('Processing changes...');
+        // Sort changes by position (line number, then column)
+        const sortedChanges = [...changes].sort((a, b) => {
+          if (a.range.startLineNumber !== b.range.startLineNumber) {
+            return a.range.startLineNumber - b.range.startLineNumber;
+          }
+          return a.range.startColumn - b.range.startColumn;
+        });
+
+        // Apply changes in reverse order to maintain correct positions
+        const lines = updatedCode.split('\n');
+        for (let i = sortedChanges.length - 1; i >= 0; i--) {
+          const change = sortedChanges[i];
+          const { range, text } = change;
+
+          // Convert Monaco editor positions to 0-based array indices
+          const startLine = range.startLineNumber - 1;
+          const endLine = range.endLineNumber - 1;
+          const startCol = range.startColumn - 1;
+          const endCol = range.endColumn - 1;
+
+          // Split the text to insert
+          const textLines = text.split('\n');
+
+          if (startLine === endLine) {
+            // Single line change
+            const line = lines[startLine];
+            const newLine =
+              line.substring(0, startCol) + text + line.substring(endCol);
+            lines[startLine] = newLine;
+          } else {
+            // Multi-line change
+            const firstLine = lines[startLine];
+            const lastLine = lines[endLine];
+            const newFirstLine =
+              firstLine.substring(0, startCol) + textLines[0];
+            const newLastLine =
+              textLines[textLines.length - 1] + lastLine.substring(endCol);
+
+            // Replace the affected lines
+            lines.splice(
+              startLine,
+              endLine - startLine + 1,
+              newFirstLine,
+              ...textLines.slice(1, -1),
+              newLastLine,
+            );
+          }
+        }
+
+        updatedCode = lines.join('\n');
+
+        console.log('Updated code after processing changes:', updatedCode);
+      } else {
+        console.log('No changes to process or changes array is empty');
+      }
+
+      console.log('Final updated code to save:', updatedCode);
+      console.log('Final code length:', updatedCode?.length);
+      // Update the session code in the database
+      await this.sessionsService.updateSessionCode(sessionId, updatedCode);
 
       // Broadcast code changes to other users in the session
       const codeChangeData = {
@@ -278,14 +362,33 @@ export class SessionsGateway
         version,
       };
 
-      // console.log(
-      //   'Broadcasting code change to room:',
-      //   sessionId,
-      //   codeChangeData,
-      // );
+      const roomClients = this.server.sockets.adapter.rooms.get(sessionId);
+      console.log(
+        'Broadcasting code change to room:',
+        sessionId,
+        'Room clients:',
+        roomClients?.size || 0,
+        codeChangeData,
+      );
       client.to(sessionId).emit('codeChanged', codeChangeData);
     } catch (error) {
       console.error('Error handling code change:', error);
+    }
+  }
+
+  @SubscribeMessage('ping')
+  async handlePing(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { timestamp: number },
+  ) {
+    try {
+      console.log('Ping received from client:', client.id, data);
+      client.emit('pong', {
+        timestamp: data.timestamp,
+        serverTime: Date.now(),
+      });
+    } catch (error) {
+      console.error('Error handling ping:', error);
     }
   }
 
@@ -326,6 +429,8 @@ export class SessionsGateway
 
       // Update the session code in the database
       await this.sessionsService.updateSessionCode(sessionId, code);
+
+      console.log('Code update:', code);
 
       // Broadcast code update to other users in the session
       const codeUpdateData = {

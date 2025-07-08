@@ -89,11 +89,6 @@ class SocketService {
     this.socket.on("error", (error) => {
       console.error("Socket error:", error);
     });
-
-    // Add debug logging for all events
-    this.socket.onAny((event, ...args) => {
-      console.log(`Socket event received: ${event}`, args);
-    });
   }
 
   private handleReconnect() {
@@ -147,6 +142,11 @@ class SocketService {
       throw new Error("Socket not connected");
     }
 
+    // console.log("Socket service sending code change:", {
+    //   sessionId,
+    //   changes,
+    //   version,
+    // });
     this.socket.emit("codeChange", {
       sessionId,
       changes,
@@ -206,10 +206,32 @@ class SocketService {
   }
 
   onCodeChanged(callback: (data: CodeChange) => void) {
-    if (!this.socket) return;
-    this.socket.on("codeChanged", (data) => {
-      callback(data);
-    });
+    if (!this.socket) {
+      console.log("Socket not available for codeChanged listener");
+      return;
+    }
+
+    const eventName = "codeChanged";
+    // console.log("Setting up codeChanged listener");
+
+    // Store the callback
+    if (!this.callbacks[eventName]) {
+      this.callbacks[eventName] = [];
+    }
+    this.callbacks[eventName].push(callback);
+
+    // Only register the socket listener once
+    if (!this.registeredListeners.has(eventName)) {
+      // console.log("Registering codeChanged listener");
+      this.socket.on(eventName, (data) => {
+        // console.log("codeChanged event received:", data);
+        // Call all registered callbacks
+        this.callbacks[eventName].forEach((cb) => cb(data));
+      });
+      this.registeredListeners.add(eventName);
+    } else {
+      // console.log("codeChanged listener already registered, adding callback");
+    }
   }
 
   onCodeUpdated(callback: (data: CodeUpdate) => void) {
@@ -285,6 +307,11 @@ class SocketService {
   ping() {
     if (!this.socket) return;
     this.socket.emit("ping", { timestamp: Date.now() });
+  }
+
+  onPong(callback: (data: { timestamp: number; serverTime: number }) => void) {
+    if (!this.socket) return;
+    this.socket.on("pong", callback);
   }
 }
 

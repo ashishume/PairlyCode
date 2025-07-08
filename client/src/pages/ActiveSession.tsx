@@ -1,32 +1,36 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { CollaborativeEditor } from "../components/CollaborativeEditor";
 import { socketService } from "../services/socket.service";
 import { apiService } from "../services/api.service";
-import type { Session, Participant, User } from "../services/socket.service";
 import { ArrowLeft, Settings, Users } from "lucide-react";
+import {
+  useSessionStore,
+  useCurrentSession,
+  useSessionLoading,
+  useSessionError,
+  useToken,
+} from "../stores";
 
 export const ActiveSession: React.FC = () => {
   const { sessionId: urlSessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
-  const [currentSession, setCurrentSession] = useState<Session | null>(null);
-  const [participants, setParticipants] = useState<Participant[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  // Check if user is authenticated
+  // Zustand store state
+  const { setCurrentSession, setLoading, setError } = useSessionStore();
+
+  // Zustand selectors
+  const currentSession = useCurrentSession();
+  const loading = useSessionLoading();
+  const error = useSessionError();
+  const token = useToken();
+
+  // Connect to WebSocket when component mounts
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const user = localStorage.getItem("user");
-
-    if (!token || !user) {
-      window.location.href = "/login";
-      return;
+    if (token) {
+      socketService.connect(token);
     }
-
-    // Connect to WebSocket
-    socketService.connect(token);
-  }, []);
+  }, [token]);
 
   // Load session from URL parameter if present
   useEffect(() => {
@@ -56,74 +60,37 @@ export const ActiveSession: React.FC = () => {
     }
   };
 
-  const handleLeaveSession = () => {
-    if (currentSession) {
-      const sessionId = currentSession.id || currentSession._id;
-      if (sessionId) {
-        socketService.leaveSession(sessionId);
-      }
-    }
-    setCurrentSession(null);
-    setParticipants([]);
+  const handleBackToSessions = () => {
     navigate("/pair-programming");
   };
 
-  // Set up WebSocket listeners
-  useEffect(() => {
-    const handleSessionJoined = (data: {
-      session: Session;
-      participants: Participant[];
-    }) => {
-      setCurrentSession(data.session);
-      setParticipants(data.participants);
-    };
-
-    const handleUserJoined = (data: {
-      user: User;
-      participants: Participant[];
-    }) => {
-      setParticipants(data.participants);
-    };
-
-    const handleUserLeft = (data: {
-      userId: string;
-      firstName: string;
-      lastName: string;
-    }) => {
-      setParticipants((prev) => prev.filter((p) => p.id !== data.userId));
-    };
-
-    const handleError = (data: { message: string }) => {
-      setError(data.message);
-    };
-
-    socketService.onSessionJoined(handleSessionJoined);
-    socketService.onUserJoined(handleUserJoined);
-    socketService.onUserLeft(handleUserLeft);
-    socketService.onError(handleError);
-
-    return () => {
-      socketService.off("sessionJoined");
-      socketService.off("userJoined");
-      socketService.off("userLeft");
-      socketService.off("error");
-    };
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      socketService.disconnect();
-    };
-  }, []);
-
-  // Show loading state when loading session from URL
-  if (loading && urlSessionId) {
+  if (!token) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading session...</p>
+          <div className="text-red-500 text-xl mb-4">{error}</div>
+          <button
+            onClick={handleBackToSessions}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Back to Sessions
+          </button>
         </div>
       </div>
     );
@@ -131,48 +98,53 @@ export const ActiveSession: React.FC = () => {
 
   if (!currentSession) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="flex items-center justify-center h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
-          <p className="text-gray-600">Loading session...</p>
+          <div className="text-gray-500 text-xl mb-4">Session not found</div>
+          <button
+            onClick={handleBackToSessions}
+            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700"
+          >
+            Back to Sessions
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="h-screen flex flex-col">
-      {/* Session header */}
-      <div className="bg-white border-b border-gray-200 px-6 py-4">
+    <div className="h-screen flex flex-col bg-gray-900">
+      {/* Connection Test */}
+      {/* <ConnectionTest /> */}
+
+      {/* Header */}
+      <div className="bg-gray-800 text-white p-4 border-b border-gray-700">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <button
-              onClick={handleLeaveSession}
-              className="flex items-center space-x-2 text-gray-600 hover:text-gray-800 transition-colors"
+              onClick={handleBackToSessions}
+              className="flex items-center space-x-2 text-gray-300 hover:text-white transition-colors"
             >
-              <ArrowLeft className="w-4 h-4" />
+              <ArrowLeft className="w-5 h-5" />
               <span>Back to Sessions</span>
             </button>
-            <div className="h-6 w-px bg-gray-300"></div>
+            <div className="h-6 w-px bg-gray-600"></div>
             <div>
-              <h1 className="text-xl font-semibold text-gray-900">
-                {currentSession.name}
-              </h1>
-              {currentSession.description && (
-                <p className="text-sm text-gray-500">
-                  {currentSession.description}
-                </p>
-              )}
+              <h1 className="text-xl font-semibold">{currentSession.name}</h1>
+              <p className="text-sm text-gray-400">
+                {currentSession.description}
+              </p>
             </div>
           </div>
-
           <div className="flex items-center space-x-4">
-            <div className="flex items-center space-x-2 text-sm text-gray-500">
+            <div className="flex items-center space-x-2 text-sm text-gray-300">
               <Users className="w-4 h-4" />
-              <span>{participants.length} participants</span>
+              <span>
+                {currentSession.participants?.length || 0} participants
+              </span>
             </div>
-            <button className="p-2 text-gray-400 hover:text-gray-600 transition-colors">
-              <Settings className="w-4 h-4" />
+            <button className="p-2 text-gray-300 hover:text-white transition-colors">
+              <Settings className="w-5 h-5" />
             </button>
           </div>
         </div>
@@ -181,22 +153,12 @@ export const ActiveSession: React.FC = () => {
       {/* Editor */}
       <div className="flex-1">
         <CollaborativeEditor
-          sessionId={currentSession.id || currentSession._id || ""}
-          participants={participants}
+          sessionId={currentSession._id || ""}
+          initialCode={currentSession.code || "// Start coding here...\n"}
           language={currentSession.language || "javascript"}
-          initialCode={
-            currentSession.code ||
-            "// Welcome to your collaborative coding session!\n// Start coding with your team..."
-          }
+          participants={currentSession.participants || []}
         />
       </div>
-
-      {/* Error toast */}
-      {error && (
-        <div className="fixed bottom-4 right-4 bg-red-500 text-white px-4 py-2 rounded-lg shadow-lg">
-          {error}
-        </div>
-      )}
     </div>
   );
 };
