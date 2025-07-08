@@ -2,7 +2,8 @@ import { useEffect } from "react";
 import { useAuthStore } from "../stores";
 
 export const useAuthInit = () => {
-  const { setUser, setToken, setAuthenticated } = useAuthStore();
+  const { setUser, setToken, setAuthenticated, setInitialized } =
+    useAuthStore();
 
   useEffect(() => {
     const token = localStorage.getItem("token");
@@ -22,5 +23,8 @@ export const useAuthInit = () => {
         localStorage.removeItem("userId");
       }
     }
-  }, [setUser, setToken, setAuthenticated]);
+
+    // Always mark as initialized after checking localStorage
+    setInitialized(true);
+  }, [setUser, setToken, setAuthenticated, setInitialized]);
 };

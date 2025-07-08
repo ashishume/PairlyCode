@@ -6,11 +6,10 @@ import { apiService } from "../services/api.service";
 import { ArrowLeft, Settings, Users } from "lucide-react";
 import {
   useSessionStore,
-  useAuthStore,
   useCurrentSession,
   useSessionLoading,
   useSessionError,
-  useIsAuthenticated,
+  useToken,
 } from "../stores";
 
 export const ActiveSession: React.FC = () => {
@@ -20,37 +19,18 @@ export const ActiveSession: React.FC = () => {
   // Zustand store state
   const { setCurrentSession, setLoading, setError } = useSessionStore();
 
-  const { login } = useAuthStore();
-
   // Zustand selectors
   const currentSession = useCurrentSession();
   const loading = useSessionLoading();
   const error = useSessionError();
-  const isAuthenticated = useIsAuthenticated();
+  const token = useToken();
 
-  // Check if user is authenticated
+  // Connect to WebSocket when component mounts
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    const userData = localStorage.getItem("user");
-
-    if (!token || !userData) {
-      window.location.href = "/login";
-      return;
+    if (token) {
+      socketService.connect(token);
     }
-
-    // Initialize auth store from localStorage
-    try {
-      const user = JSON.parse(userData);
-      login(user, token);
-    } catch (error) {
-      console.error("Error parsing user data:", error);
-      window.location.href = "/login";
-      return;
-    }
-
-    // Connect to WebSocket
-    socketService.connect(token);
-  }, [login]);
+  }, [token]);
 
   // Load session from URL parameter if present
   useEffect(() => {
@@ -84,7 +64,7 @@ export const ActiveSession: React.FC = () => {
     navigate("/pair-programming");
   };
 
-  if (!isAuthenticated) {
+  if (!token) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>

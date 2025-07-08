@@ -14,6 +14,7 @@ interface AuthState {
   user: User | null;
   token: string | null;
   isAuthenticated: boolean;
+  isInitialized: boolean;
 
   // Loading states
   loading: boolean;
@@ -23,6 +24,7 @@ interface AuthState {
   setUser: (user: User | null) => void;
   setToken: (token: string | null) => void;
   setAuthenticated: (authenticated: boolean) => void;
+  setInitialized: (initialized: boolean) => void; // Add this action
 
   // Loading actions
   setLoading: (loading: boolean) => void;
@@ -40,6 +42,7 @@ const initialState = {
   user: null,
   token: null,
   isAuthenticated: false,
+  isInitialized: false,
   loading: false,
   error: null,
 };
@@ -56,6 +59,9 @@ export const useAuthStore = create<AuthState>()(
 
         setAuthenticated: (authenticated: boolean) =>
           set({ isAuthenticated: authenticated }),
+
+        setInitialized: (initialized: boolean) =>
+          set({ isInitialized: initialized }),
 
         setLoading: (loading: boolean) => set({ loading }),
 
@@ -85,10 +91,11 @@ export const useAuthStore = create<AuthState>()(
             user: null,
             token: null,
             isAuthenticated: false,
+            isInitialized: true, // Keep initialized true after logout
           });
         },
 
-        reset: () => set(initialState),
+        reset: () => set({ ...initialState, isInitialized: true }),
       }),
       { name: "auth-store" }
     )
@@ -100,5 +107,7 @@ export const useUser = () => useAuthStore((state) => state.user);
 export const useToken = () => useAuthStore((state) => state.token);
 export const useIsAuthenticated = () =>
   useAuthStore((state) => state.isAuthenticated);
+export const useIsInitialized = () =>
+  useAuthStore((state) => state.isInitialized);
 export const useAuthLoading = () => useAuthStore((state) => state.loading);
 export const useAuthError = () => useAuthStore((state) => state.error);
