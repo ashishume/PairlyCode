@@ -42,6 +42,7 @@ export interface CodeChange {
   lastName: string;
   changes: any[];
   version: number;
+  timestamp?: number;
 }
 
 export interface CodeUpdate {
@@ -49,6 +50,14 @@ export interface CodeUpdate {
   firstName: string;
   lastName: string;
   code: string;
+  timestamp?: number;
+}
+
+export interface ConnectionStatus {
+  connected: boolean;
+  socketId?: string;
+  latency?: number;
+  reconnectAttempts: number;
 }
 
 class SocketService {
@@ -57,8 +66,18 @@ class SocketService {
   private maxReconnectAttempts = 5;
   private registeredListeners = new Set<string>();
   private callbacks: { [key: string]: Function[] } = {};
+  private connectionStatus: ConnectionStatus = {
+    connected: false,
+    reconnectAttempts: 0,
+  };
+  private reconnectTimeout: NodeJS.Timeout | null = null;
 
   connect(token: string) {
+    if (this.socket?.connected) {
+      console.log("Socket already connected");
+      return;
+    }
+
     this.socket = io(import.meta.env.VITE_API_URL || "http://localhost:3000", {
       auth: {
         token: token,
@@ -66,15 +85,30 @@ class SocketService {
       transports: ["websocket", "polling"],
       timeout: 20000,
       forceNew: true,
+      reconnection: true,
+      reconnectionAttempts: this.maxReconnectAttempts,
+      reconnectionDelay: 1000,
+      reconnectionDelayMax: 5000,
     });
 
+    this.setupEventListeners();
+  }
+
+  private setupEventListeners() {
+    if (!this.socket) return;
+
     this.socket.on("connect", () => {
-      // console.log("Connected to server with ID:", this.socket?.id);
+      console.log("Connected to server with ID:", this.socket?.id);
+      this.connectionStatus.connected = true;
+      this.connectionStatus.socketId = this.socket?.id;
+      this.connectionStatus.reconnectAttempts = 0;
       this.reconnectAttempts = 0;
     });
 
     this.socket.on("disconnect", (reason) => {
-      // console.log("Disconnected from server:", reason);
+      console.log("Disconnected from server:", reason);
+      this.connectionStatus.connected = false;
+
       if (reason === "io server disconnect") {
         // Server disconnected, try to reconnect
         this.handleReconnect();
@@ -83,88 +117,249 @@ class SocketService {
 
     this.socket.on("connect_error", (error) => {
       console.error("Connection error:", error);
+      this.connectionStatus.connected = false;
       this.handleReconnect();
     });
 
     this.socket.on("error", (error) => {
       console.error("Socket error:", error);
     });
+
+    this.socket.on("connected", (data) => {
+      console.log("Connection acknowledged:", data);
+    });
   }
 
   private handleReconnect() {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
-      // console.log(
-      //   `Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`
-      // );
-      setTimeout(() => {
+      this.connectionStatus.reconnectAttempts = this.reconnectAttempts;
+
+      console.log(
+        `Reconnection attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}`
+      );
+
+      if (this.reconnectTimeout) {
+        clearTimeout(this.reconnectTimeout);
+      }
+
+      this.reconnectTimeout = setTimeout(() => {
         this.socket?.connect();
       }, 1000 * this.reconnectAttempts);
+    } else {
+      console.error("Max reconnection attempts reached");
     }
   }
 
   disconnect() {
+    if (this.reconnectTimeout) {
+      clearTimeout(this.reconnectTimeout);
+      this.reconnectTimeout = null;
+    }
+
     if (this.socket) {
       this.socket.disconnect();
       this.socket = null;
     }
+
+    this.connectionStatus.connected = false;
+    this.connectionStatus.socketId = undefined;
+    this.registeredListeners.clear();
+    this.callbacks = {};
   }
 
-  joinSession(sessionId: string) {
+  async joinSession(
+    sessionId: string
+  ): Promise<{ success: boolean; error?: string; participantsCount?: number }> {
     if (!this.socket) {
       throw new Error("Socket not connected");
     }
 
-    // console.log("Socket service joining session:", sessionId);
-    this.socket.emit("joinSession", { sessionId });
-  }
-
-  leaveSession(sessionId: string) {
-    if (!this.socket) {
-      throw new Error("Socket not connected");
-    }
-
-    // console.log("Socket service leaving session:", sessionId);
-    this.socket.emit("leaveSession", { sessionId });
-  }
-
-  updateCursor(sessionId: string, position: CursorPosition) {
-    if (!this.socket) {
-      throw new Error("Socket not connected");
-    }
-
-    // console.log("Socket service updating cursor:", { sessionId, position });
-    this.socket.emit("updateCursor", { sessionId, position });
-  }
-
-  sendCodeChange(sessionId: string, changes: any[], version: number) {
-    if (!this.socket) {
-      throw new Error("Socket not connected");
-    }
-
-    // console.log("Socket service sending code change:", {
-    //   sessionId,
-    //   changes,
-    //   version,
-    // });
-    this.socket.emit("codeChange", {
-      sessionId,
-      changes,
-      version,
-      timestamp: Date.now(),
+    return new Promise((resolve) => {
+      this.socket!.emit("joinSession", { sessionId }, (response: any) => {
+        if (response?.success) {
+          console.log("Successfully joined session:", sessionId);
+          resolve({
+            success: true,
+            participantsCount: response.participantsCount,
+          });
+        } else {
+          console.error("Failed to join session:", response?.error);
+          resolve({
+            success: false,
+            error: response?.error || "Failed to join session",
+          });
+        }
+      });
     });
   }
 
-  sendCodeUpdate(userId: string, sessionId: string, code: string) {
+  async leaveSession(
+    sessionId: string
+  ): Promise<{ success: boolean; error?: string }> {
     if (!this.socket) {
       throw new Error("Socket not connected");
     }
 
-    this.socket.emit("updateCode", {
-      userId,
-      sessionId,
-      code,
-      timestamp: Date.now(),
+    return new Promise((resolve) => {
+      this.socket!.emit("leaveSession", { sessionId }, (response: any) => {
+        if (response?.success) {
+          console.log("Successfully left session:", sessionId);
+          resolve({ success: true });
+        } else {
+          console.error("Failed to leave session:", response?.error);
+          resolve({
+            success: false,
+            error: response?.error || "Failed to leave session",
+          });
+        }
+      });
+    });
+  }
+
+  async updateCursor(
+    sessionId: string,
+    position: CursorPosition
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!this.socket) {
+      throw new Error("Socket not connected");
+    }
+
+    return new Promise((resolve) => {
+      this.socket!.emit(
+        "updateCursor",
+        { sessionId, position },
+        (response: any) => {
+          if (response?.success) {
+            resolve({ success: true });
+          } else {
+            resolve({
+              success: false,
+              error: response?.error || "Failed to update cursor",
+            });
+          }
+        }
+      );
+    });
+  }
+
+  async sendCodeChange(
+    sessionId: string,
+    changes: any[],
+    version: number
+  ): Promise<{ success: boolean; error?: string; version?: number }> {
+    if (!this.socket) {
+      throw new Error("Socket not connected");
+    }
+
+    return new Promise((resolve) => {
+      this.socket!.emit(
+        "codeChange",
+        {
+          sessionId,
+          changes,
+          version,
+          timestamp: Date.now(),
+        },
+        (response: any) => {
+          if (response?.success) {
+            resolve({ success: true, version: response.version });
+          } else {
+            resolve({
+              success: false,
+              error: response?.error || "Failed to send code change",
+            });
+          }
+        }
+      );
+    });
+  }
+
+  async sendCodeUpdate(
+    userId: string,
+    sessionId: string,
+    code: string
+  ): Promise<{ success: boolean; error?: string }> {
+    if (!this.socket) {
+      throw new Error("Socket not connected");
+    }
+
+    return new Promise((resolve) => {
+      this.socket!.emit(
+        "updateCode",
+        {
+          userId,
+          sessionId,
+          code,
+          timestamp: Date.now(),
+        },
+        (response: any) => {
+          if (response?.success) {
+            resolve({ success: true });
+          } else {
+            resolve({
+              success: false,
+              error: response?.error || "Failed to update code",
+            });
+          }
+        }
+      );
+    });
+  }
+
+  async getSessionInfo(sessionId: string): Promise<{
+    success: boolean;
+    session?: any;
+    participants?: Participant[];
+    error?: string;
+  }> {
+    if (!this.socket) {
+      throw new Error("Socket not connected");
+    }
+
+    return new Promise((resolve) => {
+      this.socket!.emit("getSessionInfo", { sessionId }, (response: any) => {
+        if (response?.success) {
+          resolve({
+            success: true,
+            session: response.session,
+            participants: response.participants,
+          });
+        } else {
+          resolve({
+            success: false,
+            error: response?.error || "Failed to get session info",
+          });
+        }
+      });
+    });
+  }
+
+  async getConnectedClients(): Promise<{
+    success: boolean;
+    connectedClients?: number;
+    activeRooms?: number;
+    error?: string;
+  }> {
+    if (!this.socket) {
+      throw new Error("Socket not connected");
+    }
+
+    return new Promise((resolve) => {
+      this.socket!.emit("getConnectedClients", {}, (response: any) => {
+        if (response?.success) {
+          resolve({
+            success: true,
+            connectedClients: response.connectedClients,
+            activeRooms: response.activeRooms,
+          });
+        } else {
+          resolve({
+            success: false,
+            error: response?.error || "Failed to get connected clients",
+          });
+        }
+      });
     });
   }
 
@@ -180,6 +375,7 @@ class SocketService {
       userId: string;
       firstName: string;
       lastName: string;
+      timestamp?: number;
     }) => void
   ) {
     if (!this.socket) return;
@@ -199,6 +395,7 @@ class SocketService {
       firstName: string;
       lastName: string;
       position: CursorPosition;
+      timestamp?: number;
     }) => void
   ) {
     if (!this.socket) return;
@@ -294,24 +491,104 @@ class SocketService {
     this.socket.removeAllListeners(event);
   }
 
+  onPong(
+    callback: (data: {
+      timestamp: number;
+      serverTime: number;
+      latency?: number;
+    }) => void
+  ) {
+    if (!this.socket) return;
+    this.socket.on("pong", callback);
+  }
+
+  // Get connection status
+  getConnectionStatus(): ConnectionStatus {
+    return { ...this.connectionStatus };
+  }
+
+  // Check if socket is connected
   isConnected(): boolean {
-    return this.socket?.connected || false;
+    return this.connectionStatus.connected;
   }
 
   // Get current socket ID
   getSocketId(): string | undefined {
-    return this.socket?.id;
+    return this.connectionStatus.socketId;
   }
 
   // Emit a test event to check connectivity
-  ping() {
-    if (!this.socket) return;
-    this.socket.emit("ping", { timestamp: Date.now() });
+  async ping(): Promise<{
+    success: boolean;
+    latency?: number;
+    error?: string;
+  }> {
+    if (!this.socket) {
+      return { success: false, error: "Socket not connected" };
+    }
+
+    return new Promise((resolve) => {
+      const timestamp = Date.now();
+      this.socket!.emit("ping", { timestamp }, (response: any) => {
+        if (response?.success) {
+          const latency = Date.now() - timestamp;
+          this.connectionStatus.latency = latency;
+          resolve({ success: true, latency });
+        } else {
+          resolve({ success: false, error: response?.error || "Ping failed" });
+        }
+      });
+    });
   }
 
-  onPong(callback: (data: { timestamp: number; serverTime: number }) => void) {
-    if (!this.socket) return;
-    this.socket.on("pong", callback);
+  // Get room information
+  async getRoomInfo(
+    sessionId: string
+  ): Promise<{ success: boolean; roomSize?: number; error?: string }> {
+    if (!this.socket) {
+      return { success: false, error: "Socket not connected" };
+    }
+
+    return new Promise((resolve) => {
+      this.socket!.emit("getSessionInfo", { sessionId }, (response: any) => {
+        if (response?.success) {
+          resolve({
+            success: true,
+            roomSize: response.participants?.length || 0,
+          });
+        } else {
+          resolve({
+            success: false,
+            error: response?.error || "Failed to get room info",
+          });
+        }
+      });
+    });
+  }
+
+  // Force reconnection
+  forceReconnect() {
+    if (this.socket) {
+      this.socket.disconnect();
+      this.socket.connect();
+    }
+  }
+
+  // Get all registered event listeners
+  getRegisteredListeners(): string[] {
+    return Array.from(this.registeredListeners);
+  }
+
+  // Clear all callbacks for a specific event
+  clearCallbacks(event: string) {
+    if (this.callbacks[event]) {
+      this.callbacks[event] = [];
+    }
+  }
+
+  // Get callback count for an event
+  getCallbackCount(event: string): number {
+    return this.callbacks[event]?.length || 0;
   }
 }
 
