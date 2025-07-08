@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { CollaborativeEditor } from "../components/CollaborativeEditor";
+// import { CollaborativeEditor } from "../components/CollaborativeEditor";
 import { socketService } from "../services/socket.service";
 import { apiService } from "../services/api.service";
 import { ArrowLeft, Settings, Users } from "lucide-react";
@@ -11,7 +11,7 @@ import {
   useSessionError,
   useToken,
 } from "../stores";
-import { TestEditor } from "@/components/TestEditor";
+import TestEditor from "@/components/TestEditor";
 
 export const ActiveSession: React.FC = () => {
   const { sessionId: urlSessionId } = useParams<{ sessionId: string }>();
@@ -115,9 +115,6 @@ export const ActiveSession: React.FC = () => {
 
   return (
     <div className="h-screen flex flex-col bg-gray-900">
-      {/* Connection Test */}
-      {/* <ConnectionTest /> */}
-
       {/* Header */}
       <div className="bg-gray-800 text-white p-4 border-b border-gray-700">
         <div className="flex items-center justify-between">
@@ -153,7 +150,14 @@ export const ActiveSession: React.FC = () => {
 
       {/* Editor */}
       <div className="flex-1">
-        <TestEditor />
+        {currentSession.code && (
+          <TestEditor
+            sessionId={currentSession._id || ""}
+            initialCode={currentSession.code || "// Start coding here...\n"}
+            language={currentSession.language || "javascript"}
+            participants={currentSession.participants || []}
+          />
+        )}
         {/* <CollaborativeEditor
           sessionId={currentSession._id || ""}
           initialCode={currentSession.code || "// Start coding here...\n"}

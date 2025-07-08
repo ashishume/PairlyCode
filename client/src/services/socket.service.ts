@@ -40,7 +40,7 @@ export interface CodeChange {
   userId: string;
   firstName: string;
   lastName: string;
-  changes: any[];
+  code: string;
   version: number;
   timestamp?: number;
 }
@@ -245,7 +245,7 @@ class SocketService {
 
   async sendCodeChange(
     sessionId: string,
-    changes: any[],
+    code: string,
     version: number
   ): Promise<{ success: boolean; error?: string; version?: number }> {
     if (!this.socket) {
@@ -257,7 +257,7 @@ class SocketService {
         "codeChange",
         {
           sessionId,
-          changes,
+          code,
           version,
           timestamp: Date.now(),
         },
@@ -408,65 +408,7 @@ class SocketService {
       return;
     }
 
-    const eventName = "codeChanged";
-    // console.log("Setting up codeChanged listener");
-
-    // Store the callback
-    if (!this.callbacks[eventName]) {
-      this.callbacks[eventName] = [];
-    }
-    this.callbacks[eventName].push(callback);
-
-    // Only register the socket listener once
-    if (!this.registeredListeners.has(eventName)) {
-      // console.log("Registering codeChanged listener");
-      this.socket.on(eventName, (data) => {
-        // console.log("codeChanged event received:", data);
-        // Call all registered callbacks
-        this.callbacks[eventName].forEach((cb) => cb(data));
-      });
-      this.registeredListeners.add(eventName);
-    } else {
-      // console.log("codeChanged listener already registered, adding callback");
-    }
-  }
-
-  onCodeUpdated(callback: (data: CodeUpdate) => void) {
-    // console.log("onCodeUpdated method called");
-    if (!this.socket) {
-      // console.log("Socket not available for codeUpdated listener");
-      return;
-    }
-
-    const eventName = "codeUpdated";
-    // console.log("Event name:", eventName);
-    // console.log("Registered listeners:", Array.from(this.registeredListeners));
-
-    // Store the callback
-    if (!this.callbacks[eventName]) {
-      this.callbacks[eventName] = [];
-    }
-    this.callbacks[eventName].push(callback);
-    // console.log(
-    //   "Callbacks for",
-    //   eventName,
-    //   ":",
-    //   this.callbacks[eventName].length
-    // );
-
-    // Only register the socket listener once
-    if (!this.registeredListeners.has(eventName)) {
-      // console.log("Registering codeUpdated listener");
-      this.socket!.on(eventName, (data) => {
-        // console.log("codeUpdated event received:", data);
-        // Call all registered callbacks
-        this.callbacks[eventName].forEach((cb) => cb(data));
-      });
-      this.registeredListeners.add(eventName);
-      // console.log("codeUpdated listener added to registeredListeners");
-    } else {
-      // console.log("codeUpdated listener already registered, adding callback");
-    }
+    this.socket.on("codeChanged", callback);
   }
 
   onError(callback: (data: { message: string }) => void) {
@@ -517,30 +459,6 @@ class SocketService {
     return this.connectionStatus.socketId;
   }
 
-  // Emit a test event to check connectivity
-  async ping(): Promise<{
-    success: boolean;
-    latency?: number;
-    error?: string;
-  }> {
-    if (!this.socket) {
-      return { success: false, error: "Socket not connected" };
-    }
-
-    return new Promise((resolve) => {
-      const timestamp = Date.now();
-      this.socket!.emit("ping", { timestamp }, (response: any) => {
-        if (response?.success) {
-          const latency = Date.now() - timestamp;
-          this.connectionStatus.latency = latency;
-          resolve({ success: true, latency });
-        } else {
-          resolve({ success: false, error: response?.error || "Ping failed" });
-        }
-      });
-    });
-  }
-
   // Get room information
   async getRoomInfo(
     sessionId: string
@@ -589,6 +507,28 @@ class SocketService {
   // Get callback count for an event
   getCallbackCount(event: string): number {
     return this.callbacks[event]?.length || 0;
+  }
+
+  // Clean up all listeners and callbacks
+  cleanupAllListeners() {
+    if (!this.socket) return;
+
+    // Remove all socket listeners
+    this.socket.off("codeChanged");
+    this.socket.off("codeUpdated");
+    this.socket.off("userJoined");
+    this.socket.off("userLeft");
+    this.socket.off("cursorUpdated");
+    this.socket.off("sessionJoined");
+    this.socket.off("error");
+    this.socket.off("pong");
+    this.socket.off("connected");
+    this.socket.off("disconnect");
+    this.socket.off("connect_error");
+
+    // Clear all callbacks
+    this.callbacks = {};
+    this.registeredListeners.clear();
   }
 }
 

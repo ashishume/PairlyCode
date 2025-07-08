@@ -211,7 +211,7 @@ export const CollaborativeEditor: React.FC<CollaborativeEditorProps> = ({
             changeHistoryRef.current = new Set(entries.slice(-50));
           }
 
-          socketService.sendCodeChange(sessionId, batchedChanges, newVersion);
+          // socketService.sendCodeChange(sessionId, batchedChanges, newVersion);
         }, 50); // 50ms batching delay
       } catch (error) {
         console.error("🔥 Error in sendChanges:", error);

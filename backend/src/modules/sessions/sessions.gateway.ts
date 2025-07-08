@@ -27,9 +27,8 @@ interface CursorUpdateData {
 
 interface CodeChangeData {
   sessionId: string;
-  changes: any[];
   version: number;
-  code?: string;
+  code: string;
 }
 
 interface UpdateCodeData {
@@ -315,7 +314,7 @@ export class SessionsGateway
         return { success: false, error: 'Authentication required' };
       }
 
-      const { sessionId, changes, version } = data;
+      const { sessionId, code, version } = data;
 
       if (!sessionId || sessionId.trim() === '') {
         return { success: false, error: 'Session ID is required' };
@@ -333,69 +332,14 @@ export class SessionsGateway
         return { success: false, error: 'Session not found' };
       }
 
-      let updatedCode = session.code;
-
-      // Apply the changes to the current code
-      if (changes && changes.length > 0) {
-        // Sort changes by position (line number, then column)
-        const sortedChanges = [...changes].sort((a, b) => {
-          if (a.range.startLineNumber !== b.range.startLineNumber) {
-            return a.range.startLineNumber - b.range.startLineNumber;
-          }
-          return a.range.startColumn - b.range.startColumn;
-        });
-
-        // Apply changes in reverse order to maintain correct positions
-        const lines = updatedCode.split('\n');
-        for (let i = sortedChanges.length - 1; i >= 0; i--) {
-          const change = sortedChanges[i];
-          const { range, text } = change;
-
-          // Convert Monaco editor positions to 0-based array indices
-          const startLine = range.startLineNumber - 1;
-          const endLine = range.endLineNumber - 1;
-          const startCol = range.startColumn - 1;
-          const endCol = range.endColumn - 1;
-
-          // Split the text to insert
-          const textLines = text.split('\n');
-
-          if (startLine === endLine) {
-            // Single line change
-            const line = lines[startLine];
-            const newLine =
-              line.substring(0, startCol) + text + line.substring(endCol);
-            lines[startLine] = newLine;
-          } else {
-            // Multi-line change
-            const firstLine = lines[startLine];
-            const lastLine = lines[endLine];
-            const newFirstLine =
-              firstLine.substring(0, startCol) + textLines[0];
-            const newLastLine =
-              textLines[textLines.length - 1] + lastLine.substring(endCol);
-
-            // Replace the affected lines
-            lines.splice(
-              startLine,
-              endLine - startLine + 1,
-              newFirstLine,
-              ...textLines.slice(1, -1),
-              newLastLine,
-            );
-          }
-        }
-
-        updatedCode = lines.join('\n');
-        await this.sessionsService.updateSessionCode(sessionId, updatedCode);
-      }
+      await this.sessionsService.updateSessionCode(sessionId, code);
 
       // Broadcast code changes to other users in the session
       const codeChangeData = {
         userId: fullUser._id.toString(),
         firstName: fullUser.firstName,
         lastName: fullUser.lastName,
-        changes,
+        code,
         version,
         timestamp: Date.now(),
       };
