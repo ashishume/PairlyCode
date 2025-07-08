@@ -27,9 +27,16 @@ interface CursorUpdateData {
 
 interface CodeChangeData {
   sessionId: string;
-  changes: any[];
   version: number;
-  code?: string;
+  changes: {
+    range: {
+      startLineNumber: number;
+      startColumn: number;
+      endLineNumber: number;
+      endColumn: number;
+    };
+    text: string;
+  }[];
 }
 
 interface UpdateCodeData {
@@ -43,6 +50,10 @@ interface UpdateCodeData {
     origin: process.env.CLIENT_URL || 'http://localhost:5173',
     credentials: true,
   },
+  transports: ['websocket', 'polling'],
+  allowEIO3: true,
+  pingTimeout: 60000,
+  pingInterval: 25000,
 })
 @UseGuards(WsJwtGuard)
 export class SessionsGateway
@@ -51,19 +62,49 @@ export class SessionsGateway
   @WebSocketServer()
   server: Server;
 
+  private connectedClients = new Map<
+    string,
+    { userId: string; sessionId?: string }
+  >();
+
   constructor(
     private readonly sessionsService: SessionsService,
     private readonly usersService: UsersService,
   ) {}
 
   async handleConnection(client: Socket) {
-    // console.log(`Client connected: ${client.id}`);
+    try {
+      console.log(`Client connected: ${client.id}`);
+
+      // Store client info
+      const user = client.data.user;
+      if (user) {
+        this.connectedClients.set(client.id, { userId: user.sub });
+      }
+
+      // Send connection acknowledgment
+      client.emit('connected', {
+        socketId: client.id,
+        timestamp: Date.now(),
+      });
+    } catch (error) {
+      console.error('Error in handleConnection:', error);
+      client.disconnect();
+    }
   }
 
   async handleDisconnect(client: Socket) {
-    // console.log(`Client disconnected: ${client.id}`);
-    // Handle cleanup when user disconnects
-    await this.handleUserDisconnect(client);
+    try {
+      console.log(`Client disconnected: ${client.id}`);
+
+      // Clean up client info
+      this.connectedClients.delete(client.id);
+
+      // Handle cleanup when user disconnects
+      await this.handleUserDisconnect(client);
+    } catch (error) {
+      console.error('Error in handleDisconnect:', error);
+    }
   }
 
   @SubscribeMessage('joinSession')
@@ -81,26 +122,46 @@ export class SessionsGateway
       if (!user) {
         console.log('No user found in client.data');
         client.emit('error', { message: 'Authentication required' });
-        return;
+        return { success: false, error: 'Authentication required' };
       }
 
       const { sessionId } = data;
 
       if (!sessionId) {
-        // console.log('No sessionId provided in joinSession request');
+        console.log('No sessionId provided in joinSession request');
         client.emit('error', { message: 'Session ID is required' });
-        return;
+        return { success: false, error: 'Session ID is required' };
+      }
+
+      // Check if session exists
+      const session = await this.sessionsService.findSessionById(sessionId);
+      if (!session) {
+        client.emit('error', { message: 'Session not found' });
+        return { success: false, error: 'Session not found' };
+      }
+
+      // Leave any previous session
+      const clientInfo = this.connectedClients.get(client.id);
+      if (clientInfo?.sessionId && clientInfo.sessionId !== sessionId) {
+        await client.leave(clientInfo.sessionId);
+        await this.sessionsService.removeParticipant(
+          clientInfo.sessionId,
+          user.sub,
+        );
       }
 
       // Join the session room
       await client.join(sessionId);
       console.log(`Client ${client.id} joined room ${sessionId}`);
 
+      // Update client info
+      this.connectedClients.set(client.id, { userId: user.sub, sessionId });
+
       // Get full user data from database
       const fullUser = await this.usersService.findOne(user.sub);
       if (!fullUser) {
         client.emit('error', { message: 'User not found' });
-        return;
+        return { success: false, error: 'User not found' };
       }
 
       // Add user as participant
@@ -113,8 +174,7 @@ export class SessionsGateway
         `User ${fullUser._id} added as participant to session ${sessionId}`,
       );
 
-      // Get session details
-      const session = await this.sessionsService.findSessionById(sessionId);
+      // Get updated participants list
       const participants =
         await this.sessionsService.getActiveParticipants(sessionId);
 
@@ -150,9 +210,17 @@ export class SessionsGateway
       };
 
       client.emit('sessionJoined', sessionJoinedData);
+
+      // Return acknowledgment
+      return {
+        success: true,
+        sessionId,
+        participantsCount: participants.length,
+      };
     } catch (error) {
       console.error('Error joining session:', error);
       client.emit('error', { message: 'Failed to join session' });
+      return { success: false, error: 'Failed to join session' };
     }
   }
 
@@ -164,7 +232,7 @@ export class SessionsGateway
     try {
       const user = client.data.user;
       if (!user) {
-        return;
+        return { success: false, error: 'Authentication required' };
       }
 
       const { sessionId } = data;
@@ -172,17 +240,27 @@ export class SessionsGateway
       // Leave the session room
       await client.leave(sessionId);
 
+      // Update client info
+      const clientInfo = this.connectedClients.get(client.id);
+      if (clientInfo) {
+        clientInfo.sessionId = undefined;
+        this.connectedClients.set(client.id, clientInfo);
+      }
+
       // Remove user as participant
-      await this.sessionsService.removeParticipant(sessionId, user._id);
+      await this.sessionsService.removeParticipant(sessionId, user.sub);
 
       // Notify other users
       this.server.to(sessionId).emit('userLeft', {
-        userId: user._id,
+        userId: user.sub,
         firstName: user.firstName,
         lastName: user.lastName,
       });
+
+      return { success: true, sessionId };
     } catch (error) {
       console.error('Error leaving session:', error);
+      return { success: false, error: 'Failed to leave session' };
     }
   }
 
@@ -192,26 +270,21 @@ export class SessionsGateway
     @MessageBody() data: CursorUpdateData,
   ) {
     try {
-      // console.log('Cursor update request:', { clientId: client.id, data });
-
       const user = client.data.user;
       if (!user) {
-        // console.log('No user found for cursor update');
-        return;
+        return { success: false, error: 'Authentication required' };
       }
 
       const { sessionId, position } = data;
 
       if (!sessionId) {
-        // console.log('No sessionId provided in cursor update');
-        return;
+        return { success: false, error: 'Session ID is required' };
       }
 
       // Get full user data from database
       const fullUser = await this.usersService.findOne(user.sub);
       if (!fullUser) {
-        // console.log('User not found in database for cursor update:', user.sub);
-        return;
+        return { success: false, error: 'User not found' };
       }
 
       // Update cursor position in database
@@ -223,16 +296,18 @@ export class SessionsGateway
 
       // Broadcast cursor update to other users in the session
       const cursorData = {
-        userId: fullUser._id.toString(), // Convert ObjectId to string
+        userId: fullUser._id.toString(),
         firstName: fullUser.firstName,
         lastName: fullUser.lastName,
         position,
+        timestamp: Date.now(),
       };
 
-      // console.log('Broadcasting cursor update to room:', sessionId, cursorData);
       client.to(sessionId).emit('cursorUpdated', cursorData);
+      return { success: true };
     } catch (error) {
       console.error('Error updating cursor:', error);
+      return { success: false, error: 'Failed to update cursor' };
     }
   }
 
@@ -242,137 +317,51 @@ export class SessionsGateway
     @MessageBody() data: CodeChangeData,
   ) {
     try {
-      console.log('Code change request:', { clientId: client.id, data });
-
       const user = client.data.user;
       if (!user) {
-        console.log('No user found for code change');
-        return;
+        return { success: false, error: 'Authentication required' };
       }
 
       const { sessionId, changes, version } = data;
 
-      console.log('Received sessionId:', sessionId);
-      console.log('SessionId type:', typeof sessionId);
-      console.log('SessionId length:', sessionId?.length);
-
       if (!sessionId || sessionId.trim() === '') {
-        console.log(
-          'No sessionId provided in code change or sessionId is empty',
-        );
-        return;
+        return { success: false, error: 'Session ID is required' };
+      }
+
+      if (!changes || changes.length === 0) {
+        return { success: false, error: 'Changes are required' };
       }
 
       // Get full user data from database
       const fullUser = await this.usersService.findOne(user.sub);
       if (!fullUser) {
-        // console.log('User not found in database for code change:', user.sub);
-        return;
+        return { success: false, error: 'User not found' };
       }
 
-      // Get current session code to apply changes
-      console.log('Looking for session with ID:', sessionId);
+      // Get current session to verify it exists
       const session = await this.sessionsService.findSessionById(sessionId);
-      console.log('Session found:', session ? 'Yes' : 'No');
-      console.log('Session object:', session);
-
       if (!session) {
-        console.log('Session not found, cannot update code');
-        return;
+        return { success: false, error: 'Session not found' };
       }
 
-      let updatedCode = session.code;
-      console.log('Current session code:', updatedCode);
-      console.log('Current session code length:', updatedCode?.length);
+      // Apply incremental changes to the session
+      await this.sessionsService.applyCodeChanges(sessionId, changes, version);
 
-      // Apply the changes to the current code
-      console.log('Changes received:', changes);
-      console.log('Changes length:', changes?.length);
-      console.log('Changes type:', typeof changes);
-
-      if (changes && changes.length > 0) {
-        console.log('Processing changes...');
-        // Sort changes by position (line number, then column)
-        const sortedChanges = [...changes].sort((a, b) => {
-          if (a.range.startLineNumber !== b.range.startLineNumber) {
-            return a.range.startLineNumber - b.range.startLineNumber;
-          }
-          return a.range.startColumn - b.range.startColumn;
-        });
-
-        // Apply changes in reverse order to maintain correct positions
-        const lines = updatedCode.split('\n');
-        for (let i = sortedChanges.length - 1; i >= 0; i--) {
-          const change = sortedChanges[i];
-          const { range, text } = change;
-
-          // Convert Monaco editor positions to 0-based array indices
-          const startLine = range.startLineNumber - 1;
-          const endLine = range.endLineNumber - 1;
-          const startCol = range.startColumn - 1;
-          const endCol = range.endColumn - 1;
-
-          // Split the text to insert
-          const textLines = text.split('\n');
-
-          if (startLine === endLine) {
-            // Single line change
-            const line = lines[startLine];
-            const newLine =
-              line.substring(0, startCol) + text + line.substring(endCol);
-            lines[startLine] = newLine;
-          } else {
-            // Multi-line change
-            const firstLine = lines[startLine];
-            const lastLine = lines[endLine];
-            const newFirstLine =
-              firstLine.substring(0, startCol) + textLines[0];
-            const newLastLine =
-              textLines[textLines.length - 1] + lastLine.substring(endCol);
-
-            // Replace the affected lines
-            lines.splice(
-              startLine,
-              endLine - startLine + 1,
-              newFirstLine,
-              ...textLines.slice(1, -1),
-              newLastLine,
-            );
-          }
-        }
-
-        updatedCode = lines.join('\n');
-
-        console.log('Updated code after processing changes:', updatedCode);
-      } else {
-        console.log('No changes to process or changes array is empty');
-      }
-
-      console.log('Final updated code to save:', updatedCode);
-      console.log('Final code length:', updatedCode?.length);
-      // Update the session code in the database
-      await this.sessionsService.updateSessionCode(sessionId, updatedCode);
-
-      // Broadcast code changes to other users in the session
+      // Broadcast incremental changes to other users in the session
       const codeChangeData = {
-        userId: fullUser._id.toString(), // Convert ObjectId to string
+        userId: fullUser._id.toString(),
         firstName: fullUser.firstName,
         lastName: fullUser.lastName,
         changes,
         version,
+        timestamp: Date.now(),
       };
 
-      const roomClients = this.server.sockets.adapter.rooms.get(sessionId);
-      console.log(
-        'Broadcasting code change to room:',
-        sessionId,
-        'Room clients:',
-        roomClients?.size || 0,
-        codeChangeData,
-      );
       client.to(sessionId).emit('codeChanged', codeChangeData);
+      return { success: true, version };
     } catch (error) {
       console.error('Error handling code change:', error);
+      return { success: false, error: 'Failed to process code change' };
     }
   }
 
@@ -382,13 +371,15 @@ export class SessionsGateway
     @MessageBody() data: { timestamp: number },
   ) {
     try {
-      console.log('Ping received from client:', client.id, data);
       client.emit('pong', {
         timestamp: data.timestamp,
         serverTime: Date.now(),
+        latency: Date.now() - data.timestamp,
       });
+      return { success: true };
     } catch (error) {
       console.error('Error handling ping:', error);
+      return { success: false, error: 'Failed to process ping' };
     }
   }
 
@@ -398,39 +389,24 @@ export class SessionsGateway
     @MessageBody() data: UpdateCodeData,
   ) {
     try {
-      console.log('Update code request received:', {
-        clientId: client.id,
-        data: { ...data, code: data.code.substring(0, 100) + '...' },
-      });
-
       const user = client.data.user;
       if (!user) {
-        console.log('No user found for code update');
-        return;
+        return { success: false, error: 'Authentication required' };
       }
 
       const { sessionId, code, userId } = data;
-      console.log('Processing updateCode:', {
-        sessionId,
-        userId,
-        codeLength: code.length,
-      });
       if (!sessionId) {
-        console.log('No sessionId provided in code update');
-        return;
+        return { success: false, error: 'Session ID is required' };
       }
 
       // Get full user data from database
       const fullUser = await this.usersService.findOne(userId);
       if (!fullUser) {
-        // console.log('User not found in database for code update:', user.sub);
-        return;
+        return { success: false, error: 'User not found' };
       }
 
       // Update the session code in the database
       await this.sessionsService.updateSessionCode(sessionId, code);
-
-      console.log('Code update:', code);
 
       // Broadcast code update to other users in the session
       const codeUpdateData = {
@@ -438,19 +414,14 @@ export class SessionsGateway
         firstName: fullUser.firstName,
         lastName: fullUser.lastName,
         code,
+        timestamp: Date.now(),
       };
 
-      console.log('Emitting codeUpdated event to room:', sessionId, {
-        userId,
-        firstName: fullUser.firstName,
-        lastName: fullUser.lastName,
-        codeLength: code.length,
-        roomClients:
-          this.server.sockets.adapter.rooms.get(sessionId)?.size || 0,
-      });
       client.to(sessionId).emit('codeUpdated', codeUpdateData);
+      return { success: true };
     } catch (error) {
       console.error('Error handling code update:', error);
+      return { success: false, error: 'Failed to update code' };
     }
   }
 
@@ -461,27 +432,99 @@ export class SessionsGateway
         return;
       }
 
-      // Find all sessions where this user was a participant
-      const participants = await this.sessionsService.getActiveParticipants('');
-      const userParticipant = participants.find(
-        (p) => p.socketId === client.id,
-      );
-
-      if (userParticipant) {
+      // Get client info to find the session they were in
+      const clientInfo = this.connectedClients.get(client.id);
+      if (clientInfo?.sessionId) {
         await this.sessionsService.removeParticipant(
-          userParticipant.sessionId,
-          user._id,
+          clientInfo.sessionId,
+          user.sub,
         );
 
         // Notify other users in the session
-        this.server.to(userParticipant.sessionId).emit('userLeft', {
-          userId: user._id,
+        this.server.to(clientInfo.sessionId).emit('userLeft', {
+          userId: user.sub,
           firstName: user.firstName,
           lastName: user.lastName,
+          timestamp: Date.now(),
         });
       }
     } catch (error) {
       console.error('Error handling user disconnect:', error);
+    }
+  }
+
+  // Additional Socket.IO features
+  @SubscribeMessage('getSessionInfo')
+  async handleGetSessionInfo(
+    @ConnectedSocket() client: Socket,
+    @MessageBody() data: { sessionId: string },
+  ) {
+    try {
+      const user = client.data.user;
+      if (!user) {
+        return { success: false, error: 'Authentication required' };
+      }
+
+      const { sessionId } = data;
+      if (!sessionId) {
+        return { success: false, error: 'Session ID is required' };
+      }
+
+      const session = await this.sessionsService.findSessionById(sessionId);
+      if (!session) {
+        return { success: false, error: 'Session not found' };
+      }
+
+      const participants =
+        await this.sessionsService.getActiveParticipants(sessionId);
+
+      return {
+        success: true,
+        session: {
+          id: (session as any)._id?.toString(),
+          name: session.name,
+          description: session.description,
+          language: session.language,
+          code: session.code,
+          status: session.status,
+          roomId: session.roomId,
+          host: session.host,
+          participantsCount: participants.length,
+        },
+        participants: participants.map((p) => ({
+          id: p.user._id,
+          firstName: p.user.firstName,
+          lastName: p.user.lastName,
+          email: p.user.email,
+          cursorPosition: p.cursorPosition,
+        })),
+      };
+    } catch (error) {
+      console.error('Error getting session info:', error);
+      return { success: false, error: 'Failed to get session info' };
+    }
+  }
+
+  @SubscribeMessage('getConnectedClients')
+  async handleGetConnectedClients(@ConnectedSocket() client: Socket) {
+    try {
+      const user = client.data.user;
+      if (!user) {
+        return { success: false, error: 'Authentication required' };
+      }
+
+      const connectedCount = this.server.engine.clientsCount;
+      const roomCount = this.server.sockets.adapter.rooms.size;
+
+      return {
+        success: true,
+        connectedClients: connectedCount,
+        activeRooms: roomCount,
+        timestamp: Date.now(),
+      };
+    } catch (error) {
+      console.error('Error getting connected clients:', error);
+      return { success: false, error: 'Failed to get connected clients' };
     }
   }
 }

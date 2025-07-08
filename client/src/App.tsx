@@ -10,7 +10,6 @@ import { SessionListPage } from "./pages/SessionList";
 import { ActiveSession } from "./pages/ActiveSession";
 import { useAuthInit } from "./hooks/useAuthInit";
 import { useIsAuthenticated, useIsInitialized } from "./stores";
-import { TestEditor } from "./components/TestEditor";
 
 // Protected Route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -91,6 +90,7 @@ function App() {
             element={
               <ProtectedRoute>
                 <ActiveSession />
+                {/* <TestEditor /> */}
               </ProtectedRoute>
             }
           />
