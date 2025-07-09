@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { SessionList as SessionListComponent } from "../components/SessionList";
 import { CreateSessionModal } from "../components/CreateSessionModal";
 import { apiService } from "../services/api.service";
-import type { Session } from "../services/socket.service";
+import type { Session } from "../stores/collaborativeEditorStore";
 import { LogOut, User } from "lucide-react";
 import { useSessionStore, useAuthStore, useUser } from "../stores";
 

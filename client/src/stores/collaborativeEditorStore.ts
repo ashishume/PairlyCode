@@ -1,7 +1,73 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { devtools } from "zustand/middleware";
-import type { Participant, CursorPosition } from "../services/socket.service";
+export interface User {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+}
+
+export interface Participant {
+  id: string;
+  firstName: string;
+  lastName: string;
+  email: string;
+  cursorPosition?: any;
+}
+
+export interface Session {
+  id?: string;
+  _id?: string;
+  name: string;
+  description?: string;
+  language: string;
+  code: string;
+  status: string;
+  roomId: string;
+  host: User;
+  hostId: string;
+  participants: Participant[];
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CursorPosition {
+  lineNumber: number;
+  column: number;
+}
+
+export interface CodeChange {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  changes: {
+    range: {
+      startLineNumber: number;
+      startColumn: number;
+      endLineNumber: number;
+      endColumn: number;
+    };
+    text: string;
+  }[];
+  version: number;
+  timestamp?: number;
+}
+
+export interface CodeUpdate {
+  userId: string;
+  firstName: string;
+  lastName: string;
+  code: string;
+  timestamp?: number;
+}
+
+export interface ConnectionStatus {
+  connected: boolean;
+  socketId?: string;
+  latency?: number;
+  reconnectAttempts: number;
+}
 
 interface CursorInfo {
   userId: string;

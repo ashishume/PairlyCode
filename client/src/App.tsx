@@ -90,7 +90,6 @@ function App() {
             element={
               <ProtectedRoute>
                 <ActiveSession />
-                {/* <TestEditor /> */}
               </ProtectedRoute>
             }
           />

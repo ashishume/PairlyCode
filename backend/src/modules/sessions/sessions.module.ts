@@ -3,7 +3,6 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { JwtModule } from '@nestjs/jwt';
 import { SessionsService } from './sessions.service';
 import { SessionsController } from './sessions.controller';
-import { SessionsGateway } from './sessions.gateway';
 import {
   Session,
   SessionParticipant,
@@ -11,7 +10,6 @@ import {
   SessionParticipantSchema,
 } from './entities/session.entity';
 import { UsersModule } from '../users/users.module';
-import { WsJwtGuard } from '../../common/guards/ws-jwt.guard';
 
 @Module({
   imports: [
@@ -26,7 +24,7 @@ import { WsJwtGuard } from '../../common/guards/ws-jwt.guard';
     }),
   ],
   controllers: [SessionsController],
-  providers: [SessionsService, SessionsGateway, WsJwtGuard],
+  providers: [SessionsService],
   exports: [SessionsService],
 })
 export class SessionsModule {}

@@ -1,7 +1,5 @@
 import React, { useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-// import { CollaborativeEditor } from "../components/CollaborativeEditor";
-import { socketService } from "../services/socket.service";
 import { apiService } from "../services/api.service";
 import { ArrowLeft, Settings, Users } from "lucide-react";
 import {
@@ -11,7 +9,7 @@ import {
   useSessionError,
   useToken,
 } from "../stores";
-import TestEditor from "@/components/TestEditor";
+import CodeEditor from "../components/CodeEditor";
 
 export const ActiveSession: React.FC = () => {
   const { sessionId: urlSessionId } = useParams<{ sessionId: string }>();
@@ -25,13 +23,6 @@ export const ActiveSession: React.FC = () => {
   const loading = useSessionLoading();
   const error = useSessionError();
   const token = useToken();
-
-  // Connect to WebSocket when component mounts
-  useEffect(() => {
-    if (token) {
-      socketService.connect(token);
-    }
-  }, [token]);
 
   // Load session from URL parameter if present
   useEffect(() => {
@@ -48,9 +39,6 @@ export const ActiveSession: React.FC = () => {
 
       const session = await apiService.getSession(sessionId);
       setCurrentSession(session);
-
-      // Join the session via WebSocket
-      socketService.joinSession(sessionId);
     } catch (err) {
       setError("Failed to load session");
       console.error("Error loading session:", err);
@@ -151,19 +139,13 @@ export const ActiveSession: React.FC = () => {
       {/* Editor */}
       <div className="flex-1">
         {currentSession.code && (
-          <TestEditor
+          <CodeEditor
             sessionId={currentSession._id || ""}
             initialCode={currentSession.code || "// Start coding here...\n"}
             language={currentSession.language || "javascript"}
             participants={currentSession.participants || []}
           />
         )}
-        {/* <CollaborativeEditor
-          sessionId={currentSession._id || ""}
-          initialCode={currentSession.code || "// Start coding here...\n"}
-          language={currentSession.language || "javascript"}
-          participants={currentSession.participants || []}
-        /> */}
       </div>
     </div>
   );
