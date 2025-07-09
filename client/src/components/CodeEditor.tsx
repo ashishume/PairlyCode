@@ -20,7 +20,7 @@ function CodeEditor({
   const ydoc = useMemo(() => new Y.Doc(), []);
   const [editor, setEditor] = useState<any | null>(null);
   const [provider, setProvider] = useState<WebsocketProvider | null>(null);
-  const [binding, setBinding] = useState<MonacoBinding | null>(null);
+  const [, setBinding] = useState<MonacoBinding | null>(null);
 
   // this effect manages the lifetime of the Yjs document and the provider
   useEffect(() => {

@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { devtools } from "zustand/middleware";
-import type { Session } from "../services/socket.service";
+import type { Session } from "./collaborativeEditorStore";
 
 interface SessionState {
   // Current session

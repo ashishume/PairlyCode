@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { apiService } from "../services/api.service";
-import type { Session } from "../services/socket.service";
+import type { Session } from "../stores/collaborativeEditorStore";
 import { Plus, Users, Clock, Play, Pause, Square, Code } from "lucide-react";
 import {
   useSessionStore,
