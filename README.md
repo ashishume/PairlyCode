@@ -179,3 +179,13 @@ VITE_API_URL=http://localhost:3000
 2. Start production servers: `npm run start`
 
 The backend will serve the built frontend files in production mode.
+
+
+Screenshots:
+<img width="1300" alt="image" src="https://github.com/user-attachments/assets/d8e7c269-fbe9-4436-9836-8369704ae6be" />
+
+<img width="1512" alt="image" src="https://github.com/user-attachments/assets/399225d9-8841-4d3e-9b7f-e4b85c17159b" />
+
+<img width="1512" alt="image" src="https://github.com/user-attachments/assets/a2fe093e-7772-48a9-965d-dabc9d7bb586" />
+
+
