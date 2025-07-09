@@ -99,6 +99,7 @@ export const SessionListPage: React.FC = () => {
         <SessionListComponent
           onSessionSelect={handleSessionSelect}
           onCreateSession={() => setShowCreateModal(true)}
+          currentUser={user}
         />
 
         <CreateSessionModal
