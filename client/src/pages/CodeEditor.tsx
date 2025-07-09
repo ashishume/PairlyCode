@@ -1,27 +1,60 @@
-import { useState } from "react";
-import CodeEditor from "@/components/ui/CodeEditor";
+import * as Y from "yjs";
+import { WebsocketProvider } from "y-websocket";
+import { MonacoBinding } from "y-monaco";
 
-function CodeEditorPage() {
-  const [code, setCode] = useState(`// Start writing your code here`);
+import React, { useEffect, useMemo, useState } from "react";
+import Editor from "@monaco-editor/react";
+
+const roomname = `monaco-react-demo-${new Date().toLocaleDateString("en-CA")}`;
+
+function App() {
+  const ydoc = useMemo(() => new Y.Doc(), []);
+  const [editor, setEditor] = useState<any | null>(null);
+  const [provider, setProvider] = useState<WebsocketProvider | null>(null);
+  const [binding, setBinding] = useState<MonacoBinding | null>(null);
+
+  // this effect manages the lifetime of the Yjs document and the provider
+  useEffect(() => {
+    const provider = new WebsocketProvider(
+      "wss://demos.yjs.dev/ws",
+      roomname,
+      ydoc
+    );
+    setProvider(provider);
+    return () => {
+      provider?.destroy();
+      ydoc.destroy();
+    };
+  }, [ydoc]);
+
+  // this effect manages the lifetime of the editor binding
+  useEffect(() => {
+    if (provider == null || editor == null) {
+      return;
+    }
+    console.log("reached", provider);
+    const binding = new MonacoBinding(
+      ydoc.getText(),
+      editor.getModel()!,
+      new Set([editor]),
+      provider?.awareness
+    );
+    setBinding(binding);
+    return () => {
+      binding.destroy();
+    };
+  }, [ydoc, provider, editor]);
 
   return (
-    <div className="p-8">
-      <div className="mt-8">
-        <h2 className="text-xl font-semibold mb-2">Advanced Code Editor</h2>
-        <p className="text-gray-600 mb-4">
-          This version includes language selection, theme switching, and
-          enhanced features.
-        </p>
-
-        <CodeEditor
-          initialValue={code}
-          language="typescript"
-          height="400px"
-          onCodeChange={(newCode) => setCode(newCode)}
-        />
-      </div>
-    </div>
+    <Editor
+      height="90vh"
+      defaultValue="// some comment"
+      defaultLanguage="javascript"
+      onMount={(editor: any) => {
+        setEditor(editor);
+      }}
+    />
   );
 }
 
-export default CodeEditorPage;
+export default App;

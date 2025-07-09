@@ -10,6 +10,8 @@ import { SessionListPage } from "./pages/SessionList";
 import { ActiveSession } from "./pages/ActiveSession";
 import { useAuthInit } from "./hooks/useAuthInit";
 import { useIsAuthenticated, useIsInitialized } from "./stores";
+import { CollaborativeEditor } from "./components/CollaborativeEditor";
+import CodeEditor from "./pages/CodeEditor";
 
 // Protected Route component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -58,49 +60,50 @@ function App() {
   useAuthInit();
 
   return (
-    <Router>
-      <div className="App">
-        <Routes>
-          <Route
-            path="/login"
-            element={
-              <PublicRoute>
-                <Login />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/register"
-            element={
-              <PublicRoute>
-                <Register />
-              </PublicRoute>
-            }
-          />
-          <Route
-            path="/pair-programming"
-            element={
-              <ProtectedRoute>
-                <SessionListPage />
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/session/:sessionId"
-            element={
-              <ProtectedRoute>
-                <ActiveSession />
-                {/* <TestEditor /> */}
-              </ProtectedRoute>
-            }
-          />
-          <Route
-            path="/"
-            element={<Navigate to="/pair-programming" replace />}
-          />
-        </Routes>
-      </div>
-    </Router>
+    <CodeEditor />
+    // <Router>
+    //   <div className="App">
+    //     <Routes>
+    //       <Route
+    //         path="/login"
+    //         element={
+    //           <PublicRoute>
+    //             <Login />
+    //           </PublicRoute>
+    //         }
+    //       />
+    //       <Route
+    //         path="/register"
+    //         element={
+    //           <PublicRoute>
+    //             <Register />
+    //           </PublicRoute>
+    //         }
+    //       />
+    //       <Route
+    //         path="/pair-programming"
+    //         element={
+    //           <ProtectedRoute>
+    //             <SessionListPage />
+    //           </ProtectedRoute>
+    //         }
+    //       />
+    //       <Route
+    //         path="/session/:sessionId"
+    //         element={
+    //           <ProtectedRoute>
+    //             <ActiveSession />
+    //             {/* <TestEditor /> */}
+    //           </ProtectedRoute>
+    //         }
+    //       />
+    //       <Route
+    //         path="/"
+    //         element={<Navigate to="/pair-programming" replace />}
+    //       />
+    //     </Routes>
+    //   </div>
+    // </Router>
   );
 }
 
