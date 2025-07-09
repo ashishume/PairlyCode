@@ -1,4 +1,4 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { apiService } from "../services/api.service";
 import {
@@ -25,6 +25,9 @@ export const ActiveSession: React.FC = () => {
   const error = useSessionError();
   const token = useToken();
   const currentUser = useUser();
+
+  // State for online users
+  const [onlineUsers, setOnlineUsers] = useState<Map<string, any>>(new Map());
   // Load session from URL parameter if present
   useEffect(() => {
     if (urlSessionId) {
@@ -108,6 +111,11 @@ export const ActiveSession: React.FC = () => {
       <Header
         handleBackToSessions={handleBackToSessions}
         currentSession={currentSession}
+        onlineUsers={onlineUsers}
+        currentUser={{
+          id: currentUser?.id || "",
+          name: currentUser?.firstName + " " + currentUser?.lastName || "",
+        }}
       />
       {/* Editor */}
       <div className="flex-1">
@@ -120,6 +128,7 @@ export const ActiveSession: React.FC = () => {
               id: currentUser?.id || "",
               name: currentUser?.firstName + " " + currentUser?.lastName || "",
             }}
+            onOnlineUsersChange={setOnlineUsers}
           />
         )}
       </div>
