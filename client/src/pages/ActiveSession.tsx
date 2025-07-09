@@ -8,6 +8,7 @@ import {
   useSessionLoading,
   useSessionError,
   useToken,
+  useUser,
 } from "../stores";
 import CodeEditor from "../components/CodeEditor";
 
@@ -23,7 +24,7 @@ export const ActiveSession: React.FC = () => {
   const loading = useSessionLoading();
   const error = useSessionError();
   const token = useToken();
-
+  const currentUser = useUser();
   // Load session from URL parameter if present
   useEffect(() => {
     if (urlSessionId) {
@@ -135,7 +136,6 @@ export const ActiveSession: React.FC = () => {
           </div>
         </div>
       </div>
-
       {/* Editor */}
       <div className="flex-1">
         {currentSession.code && (
@@ -143,7 +143,10 @@ export const ActiveSession: React.FC = () => {
             sessionId={currentSession._id || ""}
             initialCode={currentSession.code || "// Start coding here...\n"}
             language={currentSession.language || "javascript"}
-            participants={currentSession.participants || []}
+            currentUser={{
+              id: currentUser?.id || "",
+              name: currentUser?.firstName + " " + currentUser?.lastName || "",
+            }}
           />
         )}
       </div>
