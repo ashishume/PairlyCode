@@ -82,6 +82,18 @@ interface PendingChange {
   version: number;
   timestamp: number;
 }
+export interface SessionParticipant {
+  _id: string;
+  session: string;
+  sessionId: string;
+  user: string;
+  userId: string;
+  isActive: boolean;
+  socketId: string;
+  createdAt: string;
+  updatedAt: string;
+  cursorPosition: any;
+}
 
 interface CollaborativeEditorState {
   // Session state

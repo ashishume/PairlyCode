@@ -18,7 +18,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { SessionsService } from './sessions.service';
 import { CreateSessionDto, UpdateSessionDto } from './dto/create-session.dto';
-import { Session } from './entities/session.entity';
+import { Session, SessionParticipant } from './entities/session.entity';
 
 @ApiTags('sessions')
 @Controller('sessions')
@@ -57,6 +57,19 @@ export class SessionsController {
   @ApiResponse({ status: 200, description: 'Session details', type: Session })
   async findSessionById(@Param('id') id: string): Promise<Session> {
     return this.sessionsService.findSessionById(id);
+  }
+
+  @Get(':id/participants')
+  @ApiOperation({ summary: 'Get participants in a session' })
+  @ApiResponse({
+    status: 200,
+    description: 'List of participants',
+    type: [SessionParticipant],
+  })
+  async getActiveParticipants(
+    @Param('id') id: string,
+  ): Promise<SessionParticipant[]> {
+    return this.sessionsService.getActiveParticipants(id);
   }
 
   @Patch(':id')

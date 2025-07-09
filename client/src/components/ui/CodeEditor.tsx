@@ -331,10 +331,12 @@ function CodeEditor({
           setEditor(editor);
         }}
         options={{
+          placeholder: "Start coding here...",
           fontSize: 14,
           minimap: { enabled: false },
           scrollBeyondLastLine: false,
           wordWrap: "on",
+          theme: "vs-dark",
           automaticLayout: true,
         }}
       />

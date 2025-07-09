@@ -110,6 +110,11 @@ export const apiService = {
     const response = await api.get(`/users/${id}`);
     return response.data;
   },
+
+  async getActiveParticipants(id: string) {
+    const response = await api.get(`/sessions/${id}/participants`);
+    return response.data;
+  },
 };
 
 export default api;

@@ -1,18 +1,18 @@
 import { create } from "zustand";
 import { subscribeWithSelector } from "zustand/middleware";
 import { devtools } from "zustand/middleware";
-import type { Session } from "./collaborativeEditorStore";
+import type { Session, SessionParticipant } from "./collaborativeEditorStore";
 
 interface SessionState {
-  // Current session
   currentSession: Session | null;
   sessions: Session[];
+  participants: SessionParticipant[];
 
-  // Loading states
   loading: boolean;
   error: string | null;
 
   // Actions
+  setParticipants: (participants: SessionParticipant[]) => void;
   setCurrentSession: (session: Session | null) => void;
   setSessions: (sessions: Session[]) => void;
   addSession: (session: Session) => void;
@@ -78,6 +78,9 @@ export const useSessionStore = create<SessionState>()(
         setError: (error: string | null) => set({ error }),
 
         reset: () => set(initialState),
+
+        setParticipants: (participants: SessionParticipant[]) =>
+          set({ participants }),
       }),
       { name: "session-store" }
     )

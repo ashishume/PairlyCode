@@ -3,7 +3,7 @@ import { apiService } from "../services/api.service";
 import type { Session, User } from "../stores/collaborativeEditorStore";
 import {
   Plus,
-  Users,
+  // Users,
   Clock,
   Play,
   Pause,
@@ -31,8 +31,14 @@ export const SessionList: React.FC<SessionListProps> = ({
   currentUser,
 }) => {
   // Zustand store state
-  const { setSessions, setLoading, setError, removeSession } =
-    useSessionStore();
+  const {
+    setSessions,
+    setLoading,
+    setError,
+    removeSession,
+    // setParticipants,
+    // participants,
+  } = useSessionStore();
 
   // Zustand selectors
   const sessions = useSessions();
@@ -55,6 +61,7 @@ export const SessionList: React.FC<SessionListProps> = ({
       setLoading(true);
       const data = await apiService.getSessions();
       setSessions(data);
+      // loadParticipants(data[0]._id);
     } catch (err) {
       setError("Failed to load sessions");
       console.error("Error loading sessions:", err);
@@ -62,6 +69,16 @@ export const SessionList: React.FC<SessionListProps> = ({
       setLoading(false);
     }
   };
+
+  // const loadParticipants = async (sessionId: string) => {
+  //   try {
+  //     const data = await apiService.getActiveParticipants(sessionId);
+  //     setParticipants(data);
+  //   } catch (err) {
+  //     setError("Failed to load participants");
+  //     console.error("Error loading participants:", err);
+  //   }
+  // };
 
   const handleDeleteClick = (session: Session, event: React.MouseEvent) => {
     event.stopPropagation(); // Prevent session selection
@@ -245,12 +262,10 @@ export const SessionList: React.FC<SessionListProps> = ({
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center space-x-2 text-gray-400">
+                  {/* <div className="flex items-center space-x-2 text-gray-400">
                     <Users className="w-4 h-4" />
-                    <span>
-                      {session.participants?.length || 0} participants
-                    </span>
-                  </div>
+                    <span>{participants?.length || 0} participants</span>
+                  </div> */}
                   <div className="text-gray-400">
                     {formatDate(session.createdAt)}
                   </div>
