@@ -1,6 +1,6 @@
 # PairlyCode
 
-A full-stack application with React frontend and NestJS backend.
+A realtime collaborative coding app.
 
 ## Project Structure
 
@@ -50,8 +50,9 @@ npm run dev
 
 This will start:
 
-- Backend server on `http://localhost:3000` (NestJS with hot reload)
+- Backend API server on `http://localhost:3000` (NestJS with hot reload)
 - Frontend development server on `http://localhost:5173` (Vite with hot reload)
+- Yjs WebSocket server on `ws://localhost:1234` (real-time collaboration)
 
 ### Individual Development Servers
 
@@ -63,30 +64,34 @@ npm run dev:backend
 
 # Frontend only
 npm run dev:client
+
+# Yjs server only
+npm run start:yjs
 ```
 
 ## Available Scripts
 
 ### Root Level Commands
 
-| Command                 | Description                                         |
-| ----------------------- | --------------------------------------------------- |
-| `npm run dev`           | Start both backend and frontend in development mode |
-| `npm run dev:backend`   | Start only the backend in development mode          |
-| `npm run dev:client`    | Start only the frontend in development mode         |
-| `npm run build`         | Build both backend and frontend for production      |
-| `npm run build:backend` | Build only the backend                              |
-| `npm run build:client`  | Build only the frontend                             |
-| `npm run start`         | Start both services in production mode              |
-| `npm run start:backend` | Start only the backend in production mode           |
-| `npm run start:client`  | Start only the frontend in production mode          |
-| `npm run lint`          | Run linting for both backend and frontend           |
-| `npm run lint:backend`  | Run linting for backend only                        |
-| `npm run lint:client`   | Run linting for frontend only                       |
-| `npm run test`          | Run tests for both backend and frontend             |
-| `npm run test:backend`  | Run tests for backend only                          |
-| `npm run test:client`   | Run tests for frontend only                         |
-| `npm run install:all`   | Install dependencies for all packages               |
+| Command                 | Description                                                 |
+| ----------------------- | ----------------------------------------------------------- |
+| `npm run dev`           | Start backend, frontend, and Yjs server in development mode |
+| `npm run dev:backend`   | Start only the backend in development mode                  |
+| `npm run dev:client`    | Start only the frontend in development mode                 |
+| `npm run build`         | Build both backend and frontend for production              |
+| `npm run build:backend` | Build only the backend                                      |
+| `npm run build:client`  | Build only the frontend                                     |
+| `npm run start`         | Start both services in production mode                      |
+| `npm run start:backend` | Start only the backend in production mode                   |
+| `npm run start:client`  | Start only the frontend in production mode                  |
+| `npm run start:yjs`     | Start only the Yjs WebSocket server                         |
+| `npm run lint`          | Run linting for both backend and frontend                   |
+| `npm run lint:backend`  | Run linting for backend only                                |
+| `npm run lint:client`   | Run linting for frontend only                               |
+| `npm run test`          | Run tests for both backend and frontend                     |
+| `npm run test:backend`  | Run tests for backend only                                  |
+| `npm run test:client`   | Run tests for frontend only                                 |
+| `npm run install:all`   | Install dependencies for all packages                       |
 
 ### Backend Commands (from backend/ directory)
 
@@ -99,6 +104,7 @@ npm run dev:client
 | `npm run test`        | Run unit tests                           |
 | `npm run test:e2e`    | Run end-to-end tests                     |
 | `npm run lint`        | Run ESLint                               |
+| `npm run start:yjs`   | Start Yjs WebSocket server               |
 
 ### Frontend Commands (from client/ directory)
 
@@ -115,7 +121,8 @@ npm run dev:client
 
 - **Framework**: NestJS
 - **Language**: TypeScript
-- **Database**: SQLite (development), PostgreSQL (production)
+- **Database**: MongoDB (Mongoose)
+- **Real-time Collaboration**: Yjs + Socket.IO
 - **Authentication**: JWT with Passport
 - **Validation**: class-validator
 - **Documentation**: Swagger/OpenAPI
@@ -126,7 +133,9 @@ npm run dev:client
 - **Language**: TypeScript
 - **Build Tool**: Vite
 - **Styling**: Tailwind CSS
-- **State Management**: TanStack Query
+- **State Management**: Zustand
+- **Code Editor**: Monaco
+- **Real-time Collaboration**: yjs, y-monaco, socket.io-client
 - **Routing**: React Router DOM
 - **HTTP Client**: Axios
 
@@ -142,9 +151,12 @@ npm run dev:client
 ### Backend (.env file in backend/ directory)
 
 ```env
-DATABASE_URL=sqlite:./database.sqlite
-JWT_SECRET=your-jwt-secret
+MONGODB_URI=mongodb://localhost:27017/pairlycode
+JWT_SECRET=your-secret-key
+JWT_EXPIRES_IN=1d
 PORT=3000
+CORS_ORIGIN=http://localhost:5173
+YJS_PORT=1234
 ```
 
 ### Frontend (.env file in client/ directory)
