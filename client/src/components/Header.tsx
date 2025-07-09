@@ -53,7 +53,11 @@ const Header = ({
         <div className="flex items-center space-x-4">
           {/* PairlyCode Logo */}
           <div className="flex items-center">
-            <img src={pairlyCodeLogo} alt="PairlyCode" className="h-8 w-auto" />
+            <img
+              src={pairlyCodeLogo}
+              alt="PairlyCode"
+              className="h-8 w-auto rounded-full"
+            />
           </div>
 
           {showUsers && (

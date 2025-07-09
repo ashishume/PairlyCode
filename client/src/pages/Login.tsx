@@ -50,14 +50,7 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-purple-900 flex items-center justify-center p-4">
-      {/* Background decoration */}
-      <div className="absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-blue-500/20 rounded-full blur-3xl"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-purple-500/20 rounded-full blur-3xl"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-full blur-3xl"></div>
-      </div>
-
+    <div className="min-h-screen bg-[#30565b] flex items-center justify-center p-4">
       <div className="relative z-10 min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div
           className={`max-w-md w-full space-y-8 transform transition-all duration-1000 ease-out ${
@@ -70,7 +63,7 @@ export const Login: React.FC = () => {
               <img
                 src={pairlyCodeLogo}
                 alt="PairlyCode"
-                className="h-16 w-auto"
+                className="h-16 w-auto rounded-full"
               />
             </div>
 
@@ -136,7 +129,7 @@ export const Login: React.FC = () => {
                 className={`w-full py-4 px-6 rounded-2xl font-semibold text-lg transition-all duration-300 transform hover:scale-105 focus:outline-none focus:ring-4 focus:ring-blue-500/30 ${
                   loading
                     ? "bg-gray-600 text-gray-300 cursor-not-allowed"
-                    : "bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl"
+                    : "bg-black text-white hover:bg-gray-800 shadow-lg hover:shadow-xl"
                 }`}
               >
                 {loading ? (
