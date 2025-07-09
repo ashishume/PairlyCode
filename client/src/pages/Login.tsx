@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Code, Sparkles, Mail, Lock } from "lucide-react";
 import { InputField } from "../components/ui/InputField";
 import { useAuthStore, useAuthLoading, useAuthError } from "../stores";
+import pairlyCodeLogo from "../assets/pairly-code.png";
 
 export const Login: React.FC = () => {
   const [email, setEmail] = useState("");
@@ -65,16 +66,12 @@ export const Login: React.FC = () => {
         >
           {/* Header */}
           <div className="text-center space-y-4">
-            <div className="flex justify-center items-center space-x-2 mb-6">
-              <div className="p-3 bg-gradient-to-r from-blue-500 to-purple-600 rounded-xl shadow-lg">
-                <Code className="h-8 w-8 text-white" />
-              </div>
-              <div className="flex items-center space-x-1">
-                <Sparkles className="h-6 w-6 text-yellow-400 animate-pulse" />
-                <h1 className="text-3xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">
-                  PairlyCode
-                </h1>
-              </div>
+            <div className="flex justify-center items-center mb-6">
+              <img
+                src={pairlyCodeLogo}
+                alt="PairlyCode"
+                className="h-16 w-auto"
+              />
             </div>
 
             <h2 className="text-4xl font-bold text-white">Welcome back</h2>

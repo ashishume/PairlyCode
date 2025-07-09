@@ -232,7 +232,7 @@ export const SessionList: React.FC<SessionListProps> = ({
                 <button
                   onClick={(e) => handleDeleteClick(session, e)}
                   disabled={deletingSessionId === (session._id || session.id)}
-                  className="absolute top-2 right-2 p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 disabled:opacity-50"
+                  className="absolute bottom-2 right-2 p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 disabled:opacity-50"
                   title="Delete session"
                 >
                   {deletingSessionId === (session._id || session.id) ? (

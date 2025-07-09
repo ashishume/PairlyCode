@@ -8,8 +8,9 @@ import {
   useSessionError,
   useToken,
   useUser,
+  useAuthStore,
 } from "../stores";
-import CodeEditor from "../components/CodeEditor";
+import CodeEditor from "../components/ui/CodeEditor";
 import Header from "@/components/Header";
 
 export const ActiveSession: React.FC = () => {
@@ -25,6 +26,7 @@ export const ActiveSession: React.FC = () => {
   const error = useSessionError();
   const token = useToken();
   const currentUser = useUser();
+  const { logout } = useAuthStore();
 
   // State for online users
   const [onlineUsers, setOnlineUsers] = useState<Map<string, any>>(new Map());
@@ -55,6 +57,11 @@ export const ActiveSession: React.FC = () => {
 
   const handleBackToSessions = () => {
     navigate("/pair-programming");
+  };
+
+  const handleLogout = () => {
+    logout();
+    navigate("/login");
   };
 
   if (!token) {
@@ -116,6 +123,9 @@ export const ActiveSession: React.FC = () => {
           id: currentUser?.id || "",
           name: currentUser?.firstName + " " + currentUser?.lastName || "",
         }}
+        handleLogout={handleLogout}
+        showLogout={true}
+        showUsers={true}
       />
       {/* Editor */}
       <div className="flex-1">
