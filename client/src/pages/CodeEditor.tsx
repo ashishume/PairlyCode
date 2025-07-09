@@ -1,8 +1,7 @@
 import * as Y from "yjs";
 import { WebsocketProvider } from "y-websocket";
 import { MonacoBinding } from "y-monaco";
-
-import React, { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Editor from "@monaco-editor/react";
 
 const roomname = `monaco-react-demo-${new Date().toLocaleDateString("en-CA")}`;
@@ -16,7 +15,7 @@ function App() {
   // this effect manages the lifetime of the Yjs document and the provider
   useEffect(() => {
     const provider = new WebsocketProvider(
-      "wss://demos.yjs.dev/ws",
+      "ws://localhost:1234",
       roomname,
       ydoc
     );
