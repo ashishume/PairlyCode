@@ -46,6 +46,7 @@ function CodeEditor({
   const [, setBinding] = useState<MonacoBinding | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<Map<string, User>>(new Map());
   const decorationsRef = useRef<string[]>([]);
+  const [output, setOutput] = useState<string>("");
 
   // Generate a random color for the user if not provided
   const userColor = useMemo(() => {
@@ -321,25 +322,81 @@ function CodeEditor({
     };
   }, [onlineUsers]);
 
+  // Execute the code (only for JavaScript) and capture console output
+  const executeCode = useCallback(() => {
+    if (language !== "javascript" || !editor) return;
+
+    const code = editor.getValue();
+    const logs: string[] = [];
+
+    const originalLog = console.log;
+    (console as any).log = (...args: any[]) => {
+      const message = args
+        .map((arg) =>
+          typeof arg === "object" ? JSON.stringify(arg, null, 2) : String(arg)
+        )
+        .join(" ");
+      logs.push(message);
+      originalLog(...args);
+    };
+
+    try {
+      // eslint-disable-next-line no-eval
+      const result = eval(code);
+      if (result !== undefined) {
+        logs.push(String(result));
+      }
+    } catch (err: any) {
+      logs.push(`Error: ${err.message || err}`);
+    }
+
+    (console as any).log = originalLog;
+
+    setOutput(logs.join("\n"));
+  }, [editor, language]);
+
   return (
-    <div style={{ height: "100%" }}>
-      <Editor
-        height="100%"
-        defaultValue={initialCode}
-        defaultLanguage={language}
-        onMount={(editor: any) => {
-          setEditor(editor);
-        }}
-        options={{
-          placeholder: "Start coding here...",
-          fontSize: 14,
-          minimap: { enabled: false },
-          scrollBeyondLastLine: false,
-          wordWrap: "on",
-          theme: "vs-dark",
-          automaticLayout: true,
-        }}
-      />
+    <div className="h-full flex flex-col">
+      {/* Toolbar */}
+      <div className="bg-gray-800 p-2 flex justify-end">
+        <button
+          onClick={executeCode}
+          disabled={language !== "javascript"}
+          className="px-3 py-1 rounded text-white bg-green-600 hover:bg-green-700 disabled:opacity-50"
+        >
+          Run
+        </button>
+      </div>
+
+      {/* Editor */}
+      <div className="flex-1">
+        <Editor
+          height="100%"
+          defaultValue={initialCode}
+          defaultLanguage={language}
+          onMount={(editor: any) => {
+            setEditor(editor);
+          }}
+          options={{
+            placeholder: "Start coding here...",
+            fontSize: 14,
+            minimap: { enabled: false },
+            scrollBeyondLastLine: false,
+            wordWrap: "on",
+            theme: "vs-dark",
+            automaticLayout: true,
+          }}
+        />
+      </div>
+
+      {/* Output */}
+      {language === "javascript" && (
+        <div className="bg-gray-900 text-white p-2 h-40 overflow-auto border-t border-gray-700">
+          <pre className="whitespace-pre-wrap text-sm">
+            {output || "javascript output will appear here"}
+          </pre>
+        </div>
+      )}
     </div>
   );
 }
