@@ -1,4 +1,4 @@
-import CodeEditorPage from "./CodeEditor";
+import CodeEditorPage from "../components/CodeEditor";
 
 function Home() {
   return (

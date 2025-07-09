@@ -4,9 +4,19 @@ import { MonacoBinding } from "y-monaco";
 import { useEffect, useMemo, useState } from "react";
 import Editor from "@monaco-editor/react";
 
-const roomname = `monaco-react-demo-${new Date().toLocaleDateString("en-CA")}`;
+// const roomname = `monaco-react-demo-${new Date().toLocaleDateString("en-CA")}`;
 
-function App() {
+function CodeEditor({
+  sessionId,
+  initialCode,
+  language,
+  participants,
+}: {
+  sessionId: string;
+  initialCode: string;
+  language: string;
+  participants: any[];
+}) {
   const ydoc = useMemo(() => new Y.Doc(), []);
   const [editor, setEditor] = useState<any | null>(null);
   const [provider, setProvider] = useState<WebsocketProvider | null>(null);
@@ -16,7 +26,7 @@ function App() {
   useEffect(() => {
     const provider = new WebsocketProvider(
       "ws://localhost:1234",
-      roomname,
+      sessionId,
       ydoc
     );
     setProvider(provider);
@@ -44,11 +54,13 @@ function App() {
     };
   }, [ydoc, provider, editor]);
 
+  console.log("participants", participants);
+
   return (
     <Editor
       height="90vh"
-      defaultValue="// some comment"
-      defaultLanguage="javascript"
+      defaultValue={initialCode}
+      defaultLanguage={language}
       onMount={(editor: any) => {
         setEditor(editor);
       }}
@@ -56,4 +68,4 @@ function App() {
   );
 }
 
-export default App;
+export default CodeEditor;

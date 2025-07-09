@@ -4,9 +4,10 @@
   "description": "PairlyCode - Full Stack Application",
   "private": true,
   "scripts": {
-    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:client\"",
+    "dev": "concurrently \"npm run dev:backend\" \"npm run dev:client\" \"npm run start:yjs\"",
     "dev:backend": "cd backend && npm run start:dev",
     "dev:client": "cd client && npm run dev",
+    "start:yjs": "cd backend && npm run start:yjs",
     "build": "npm run build:backend && npm run build:client",
     "build:backend": "cd backend && npm run build",
     "build:client": "cd client && npm run build",

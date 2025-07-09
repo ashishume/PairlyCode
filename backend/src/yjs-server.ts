@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { setupWSConnection } from '@y-websocket/server';
 import { WebSocketServer } from 'ws';
 
