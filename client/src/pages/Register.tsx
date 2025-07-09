@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { apiService } from "../services/api.service";
 import { Link, useNavigate } from "react-router-dom";
-import { Mail, Lock, User, Code, Sparkles } from "lucide-react";
+import { Mail, Lock, User } from "lucide-react";
 import { InputField } from "../components/ui/InputField";
 import { useAuthStore, useAuthLoading, useAuthError } from "../stores";
 import pairlyCodeLogo from "../assets/pairly-code.png";

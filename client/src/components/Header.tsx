@@ -1,11 +1,4 @@
-import {
-  ArrowLeft,
-  Settings,
-  Users,
-  ChevronDown,
-  ChevronUp,
-  LogOut,
-} from "lucide-react";
+import { ArrowLeft, Users, ChevronDown, ChevronUp, LogOut } from "lucide-react";
 import { useState } from "react";
 import pairlyCodeLogo from "../assets/pairly-code.png";
 
