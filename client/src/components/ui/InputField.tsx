@@ -38,12 +38,12 @@ export const InputField: React.FC<InputFieldProps> = ({
     <div className={`group space-y-3 ${className}`}>
       <label
         htmlFor={id}
-        className={`block text-sm font-semibold text-gray-300 transition-colors duration-200 ${
-          isFocused ? "text-blue-400" : ""
+        className={`block text-sm font-semibold text-white transition-colors duration-200 ${
+          isFocused ? "text-blue-300" : ""
         }`}
       >
         {label}
-        {required && <span className="text-red-400 ml-1">*</span>}
+        {required && <span className="text-red-300 ml-1">*</span>}
       </label>
 
       <div className="relative">
@@ -51,7 +51,7 @@ export const InputField: React.FC<InputFieldProps> = ({
           <div className="absolute inset-y-0 left-0 pl-5 flex items-center pointer-events-none">
             <Icon
               className={`h-5 w-5 transition-all duration-200 ${
-                isFocused ? "text-blue-400 scale-110" : "text-gray-400"
+                isFocused ? "text-blue-300 scale-110" : "text-white/70"
               }`}
             />
           </div>
@@ -69,7 +69,7 @@ export const InputField: React.FC<InputFieldProps> = ({
           onBlur={() => setIsFocused(false)}
           className={`w-full ${Icon ? "pl-14" : "pl-5"} ${
             type === "password" ? "pr-14" : "pr-5"
-          } py-5 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-300 hover:bg-white/15 hover:border-white/30 ${
+          } py-5 bg-white/10 border border-white/20 rounded-2xl text-white placeholder-white/50 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 backdrop-blur-sm transition-all duration-300 hover:bg-white/15 hover:border-white/30 ${
             error
               ? "border-red-500/50 focus:ring-red-500/50 focus:border-red-500/50"
               : ""
@@ -80,7 +80,7 @@ export const InputField: React.FC<InputFieldProps> = ({
         {type === "password" && (
           <button
             type="button"
-            className="absolute inset-y-0 right-0 pr-5 flex items-center text-gray-400 hover:text-white transition-all duration-200 hover:scale-110"
+            className="absolute inset-y-0 right-0 pr-5 flex items-center text-white/70 hover:text-white transition-all duration-200 hover:scale-110"
             onClick={() => setShowPassword(!showPassword)}
           >
             {showPassword ? (
@@ -123,7 +123,7 @@ export const InputField: React.FC<InputFieldProps> = ({
       </div>
 
       {error && (
-        <div className="mt-3 text-sm text-red-300 flex items-center space-x-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 backdrop-blur-sm">
+        <div className="mt-3 text-sm text-red-200 flex items-center space-x-2 bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3 backdrop-blur-sm">
           <div className="w-2 h-2 bg-red-400 rounded-full animate-pulse"></div>
           <span className="font-medium">{error}</span>
         </div>

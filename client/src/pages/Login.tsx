@@ -53,7 +53,7 @@ export const Login: React.FC = () => {
     <div className="min-h-screen bg-[#30565b] flex items-center justify-center p-4">
       <div className="relative z-10 min-h-screen flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
         <div
-          className={`max-w-md w-full space-y-8 transform transition-all duration-1000 ease-out ${
+          className={`max-w-lg w-full space-y-8 transform transition-all duration-1000 ease-out ${
             isVisible ? "translate-y-0 opacity-100" : "translate-y-8 opacity-0"
           }`}
         >
@@ -68,14 +68,14 @@ export const Login: React.FC = () => {
             </div>
 
             <h2 className="text-4xl font-bold text-white">Welcome back</h2>
-            <p className="text-gray-300 text-lg">
+            <p className="text-white/80 text-lg">
               Sign in to continue your coding journey
             </p>
-            <p className="text-sm text-gray-400">
+            <p className="text-sm text-white/60">
               Don't have an account?{" "}
               <Link
                 to="/register"
-                className="font-semibold text-blue-400 hover:text-blue-300 transition-colors duration-200 underline decoration-blue-400/30 hover:decoration-blue-300/50"
+                className="font-semibold text-blue-300 hover:text-blue-200 transition-colors duration-200 underline decoration-blue-300/30 hover:decoration-blue-200/50"
               >
                 Create one now
               </Link>
