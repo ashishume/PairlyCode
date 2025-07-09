@@ -3,6 +3,7 @@ import { WebsocketProvider } from "y-websocket";
 import { MonacoBinding } from "y-monaco";
 import { useEffect, useMemo, useState, useCallback, useRef } from "react";
 import Editor from "@monaco-editor/react";
+import { Users, User, ChevronDown, ChevronUp } from "lucide-react";
 
 interface User {
   id: string;
@@ -42,6 +43,7 @@ function CodeEditor({
   const [provider, setProvider] = useState<WebsocketProvider | null>(null);
   const [, setBinding] = useState<MonacoBinding | null>(null);
   const [onlineUsers, setOnlineUsers] = useState<Map<string, User>>(new Map());
+  const [showUserList, setShowUserList] = useState(false);
   const decorationsRef = useRef<string[]>([]);
 
   // Generate a random color for the user if not provided
@@ -254,6 +256,17 @@ function CodeEditor({
   useEffect(() => {
     const style = document.createElement("style");
     style.textContent = `
+      @keyframes slideDown {
+        from {
+          opacity: 0;
+          transform: translateY(-8px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+      
       .remote-cursor-name {
         background: rgba(0, 0, 0, 0.8);
         color: white;
@@ -308,77 +321,260 @@ function CodeEditor({
       <div
         style={{
           position: "absolute",
-          top: "10px",
-          right: "10px",
+          top: "16px",
+          right: "16px",
           zIndex: 1000,
-          background: "rgba(0, 0, 0, 0.8)",
-          color: "white",
-          padding: "8px 12px",
-          borderRadius: "6px",
-          fontSize: "12px",
           display: "flex",
-          alignItems: "center",
+          flexDirection: "column",
+          alignItems: "flex-end",
           gap: "8px",
         }}
       >
-        <span>👥 {onlineUsers.size + 1} online</span>
-        <div style={{ display: "flex", gap: "4px" }}>
-          {/* Current user indicator */}
+        {/* Main indicator button */}
+        <div
+          style={{
+            background: "rgba(255, 255, 255, 0.95)",
+            backdropFilter: "blur(10px)",
+            border: "1px solid rgba(0, 0, 0, 0.1)",
+            borderRadius: "12px",
+            padding: "8px 12px",
+            fontSize: "13px",
+            fontWeight: "500",
+            color: "#374151",
+            display: "flex",
+            alignItems: "center",
+            gap: "8px",
+            cursor: "pointer",
+            transition: "all 0.2s ease",
+            boxShadow: "0 4px 12px rgba(0, 0, 0, 0.1)",
+          }}
+          onClick={() => setShowUserList(!showUserList)}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.transform = "translateY(-1px)";
+            e.currentTarget.style.boxShadow = "0 6px 16px rgba(0, 0, 0, 0.15)";
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.transform = "translateY(0)";
+            e.currentTarget.style.boxShadow = "0 4px 12px rgba(0, 0, 0, 0.1)";
+          }}
+        >
+          <Users size={16} />
+          <span>{onlineUsers.size + 1}</span>
+          {showUserList ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </div>
+
+        {/* User avatars */}
+        <div
+          style={{
+            display: "flex",
+            gap: "4px",
+            alignItems: "center",
+          }}
+        >
+          {/* Current user */}
           <div
             style={{
-              width: "12px",
-              height: "12px",
+              width: "28px",
+              height: "28px",
               borderRadius: "50%",
               backgroundColor: userColor,
               border: "2px solid white",
+              boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              fontSize: "12px",
+              fontWeight: "600",
+              color: "white",
+              textShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
             }}
             title={`${currentUser.name} (You)`}
-          />
-          {/* Other users indicators */}
-          {Array.from(onlineUsers.values()).map((user) => (
-            <div
-              key={user.id}
-              style={{
-                width: "12px",
-                height: "12px",
-                borderRadius: "50%",
-                backgroundColor: user.color,
-                border: "2px solid white",
-              }}
-              title={user.name}
-            />
-          ))}
-        </div>
-      </div>
-
-      {/* User list tooltip */}
-      <div
-        style={{
-          position: "absolute",
-          top: "45px",
-          right: "10px",
-          zIndex: 999,
-          background: "rgba(0, 0, 0, 0.9)",
-          color: "white",
-          padding: "8px",
-          borderRadius: "6px",
-          fontSize: "11px",
-          minWidth: "120px",
-          maxHeight: "200px",
-          overflowY: "auto",
-        }}
-      >
-        <div style={{ fontWeight: "bold", marginBottom: "4px" }}>
-          Active Users:
-        </div>
-        <div style={{ color: userColor, marginBottom: "2px" }}>
-          🟢 {currentUser.name} (You)
-        </div>
-        {Array.from(onlineUsers.values()).map((user) => (
-          <div key={user.id} style={{ color: user.color, marginBottom: "2px" }}>
-            🟢 {user.name}
+          >
+            {currentUser.name.charAt(0).toUpperCase()}
           </div>
-        ))}
+
+          {/* Other users */}
+          {Array.from(onlineUsers.values())
+            .slice(0, 3)
+            .map((user) => (
+              <div
+                key={user.id}
+                style={{
+                  width: "28px",
+                  height: "28px",
+                  borderRadius: "50%",
+                  backgroundColor: user.color,
+                  border: "2px solid white",
+                  boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "12px",
+                  fontWeight: "600",
+                  color: "white",
+                  textShadow: "0 1px 2px rgba(0, 0, 0, 0.3)",
+                }}
+                title={user.name}
+              >
+                {user.name.charAt(0).toUpperCase()}
+              </div>
+            ))}
+
+          {/* Show more indicator */}
+          {onlineUsers.size > 3 && (
+            <div
+              style={{
+                width: "28px",
+                height: "28px",
+                borderRadius: "50%",
+                backgroundColor: "#6B7280",
+                border: "2px solid white",
+                boxShadow: "0 2px 8px rgba(0, 0, 0, 0.15)",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                fontSize: "11px",
+                fontWeight: "600",
+                color: "white",
+              }}
+              title={`${onlineUsers.size - 3} more users`}
+            >
+              +{onlineUsers.size - 3}
+            </div>
+          )}
+        </div>
+
+        {/* User list dropdown */}
+        {showUserList && (
+          <div
+            style={{
+              background: "rgba(255, 255, 255, 0.98)",
+              backdropFilter: "blur(10px)",
+              border: "1px solid rgba(0, 0, 0, 0.1)",
+              borderRadius: "12px",
+              padding: "12px",
+              minWidth: "200px",
+              maxHeight: "300px",
+              overflowY: "auto",
+              boxShadow: "0 8px 32px rgba(0, 0, 0, 0.12)",
+              animation: "slideDown 0.2s ease-out",
+            }}
+          >
+            <div
+              style={{
+                fontSize: "12px",
+                fontWeight: "600",
+                color: "#6B7280",
+                marginBottom: "8px",
+                textTransform: "uppercase",
+                letterSpacing: "0.5px",
+              }}
+            >
+              Active Users
+            </div>
+
+            {/* Current user */}
+            <div
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: "8px",
+                padding: "6px 0",
+                borderBottom: "1px solid rgba(0, 0, 0, 0.05)",
+              }}
+            >
+              <div
+                style={{
+                  width: "24px",
+                  height: "24px",
+                  borderRadius: "50%",
+                  backgroundColor: userColor,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  fontSize: "11px",
+                  fontWeight: "600",
+                  color: "white",
+                }}
+              >
+                {currentUser.name.charAt(0).toUpperCase()}
+              </div>
+              <div style={{ flex: 1 }}>
+                <div
+                  style={{
+                    fontSize: "13px",
+                    fontWeight: "500",
+                    color: "#111827",
+                  }}
+                >
+                  {currentUser.name}
+                </div>
+                <div style={{ fontSize: "11px", color: "#6B7280" }}>You</div>
+              </div>
+              <div
+                style={{
+                  width: "8px",
+                  height: "8px",
+                  borderRadius: "50%",
+                  backgroundColor: "#10B981",
+                }}
+              />
+            </div>
+
+            {/* Other users */}
+            {Array.from(onlineUsers.values()).map((user) => (
+              <div
+                key={user.id}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "6px 0",
+                  borderBottom: "1px solid rgba(0, 0, 0, 0.05)",
+                }}
+              >
+                <div
+                  style={{
+                    width: "24px",
+                    height: "24px",
+                    borderRadius: "50%",
+                    backgroundColor: user.color,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    fontSize: "11px",
+                    fontWeight: "600",
+                    color: "white",
+                  }}
+                >
+                  {user.name.charAt(0).toUpperCase()}
+                </div>
+                <div style={{ flex: 1 }}>
+                  <div
+                    style={{
+                      fontSize: "13px",
+                      fontWeight: "500",
+                      color: "#111827",
+                    }}
+                  >
+                    {user.name}
+                  </div>
+                  <div style={{ fontSize: "11px", color: "#6B7280" }}>
+                    Online
+                  </div>
+                </div>
+                <div
+                  style={{
+                    width: "8px",
+                    height: "8px",
+                    borderRadius: "50%",
+                    backgroundColor: "#10B981",
+                  }}
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
 
       <Editor
