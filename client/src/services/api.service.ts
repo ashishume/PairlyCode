@@ -95,6 +95,11 @@ export const apiService = {
     return response.data;
   },
 
+  async deleteSession(id: string) {
+    const response = await api.delete(`/sessions/${id}/delete`);
+    return response.data;
+  },
+
   // Users
   async getUsers() {
     const response = await api.get("/users");

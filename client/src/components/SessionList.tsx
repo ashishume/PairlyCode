@@ -1,30 +1,50 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import { apiService } from "../services/api.service";
-import type { Session } from "../stores/collaborativeEditorStore";
-import { Plus, Users, Clock, Play, Pause, Square, Code } from "lucide-react";
+import type { Session, User } from "../stores/collaborativeEditorStore";
+import {
+  Plus,
+  Users,
+  Clock,
+  Play,
+  Pause,
+  Square,
+  Code,
+  Trash2,
+} from "lucide-react";
 import {
   useSessionStore,
   useSessions,
   useSessionLoading,
   useSessionError,
 } from "../stores";
+import { DeleteConfirmationModal } from "./DeleteConfirmationModal";
 
 interface SessionListProps {
   onSessionSelect: (session: Session) => void;
   onCreateSession: () => void;
+  currentUser: User | null;
 }
 
 export const SessionList: React.FC<SessionListProps> = ({
   onSessionSelect,
   onCreateSession,
+  currentUser,
 }) => {
   // Zustand store state
-  const { setSessions, setLoading, setError } = useSessionStore();
+  const { setSessions, setLoading, setError, removeSession } =
+    useSessionStore();
 
   // Zustand selectors
   const sessions = useSessions();
   const loading = useSessionLoading();
   const error = useSessionError();
+
+  // Local state for delete confirmation
+  const [deletingSessionId, setDeletingSessionId] = useState<string | null>(
+    null
+  );
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [sessionToDelete, setSessionToDelete] = useState<Session | null>(null);
 
   useEffect(() => {
     loadSessions();
@@ -41,6 +61,50 @@ export const SessionList: React.FC<SessionListProps> = ({
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleDeleteClick = (session: Session, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent session selection
+    setSessionToDelete(session);
+    setShowDeleteModal(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!sessionToDelete) return;
+
+    const sessionId = sessionToDelete._id || sessionToDelete.id || "";
+    if (!sessionId) {
+      setError("Session ID not found");
+      return;
+    }
+
+    try {
+      setDeletingSessionId(sessionId);
+      await apiService.deleteSession(sessionId);
+
+      // Remove from local state
+      removeSession(sessionId);
+      setShowDeleteModal(false);
+      setSessionToDelete(null);
+    } catch (err) {
+      setError("Failed to delete session");
+      console.error("Error deleting session:", err);
+    } finally {
+      setDeletingSessionId(null);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setShowDeleteModal(false);
+    setSessionToDelete(null);
+  };
+
+  // Helper function to check if current user is the host of a session
+  const isSessionHost = (session: Session): boolean => {
+    if (!currentUser) return false;
+    return (
+      session.hostId === currentUser.id || session.host?.id === currentUser.id
+    );
   };
 
   const getStatusIcon = (status: string) => {
@@ -141,7 +205,7 @@ export const SessionList: React.FC<SessionListProps> = ({
           {sessions.map((session) => (
             <div
               key={session._id}
-              className="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-gray-600 transition-colors cursor-pointer"
+              className="bg-gray-800 rounded-lg p-6 border border-gray-700 hover:border-gray-600 transition-colors cursor-pointer relative group"
               onClick={() => onSessionSelect(session)}
             >
               <div className="flex items-start justify-between mb-4">
@@ -162,6 +226,22 @@ export const SessionList: React.FC<SessionListProps> = ({
                   </span>
                 </div>
               </div>
+
+              {/* Delete button - only visible on hover for session hosts */}
+              {isSessionHost(session) && (
+                <button
+                  onClick={(e) => handleDeleteClick(session, e)}
+                  disabled={deletingSessionId === (session._id || session.id)}
+                  className="absolute top-2 right-2 p-2 text-gray-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg opacity-0 group-hover:opacity-100 transition-all duration-200 disabled:opacity-50"
+                  title="Delete session"
+                >
+                  {deletingSessionId === (session._id || session.id) ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-red-500"></div>
+                  ) : (
+                    <Trash2 className="w-4 h-4" />
+                  )}
+                </button>
+              )}
 
               <div className="space-y-3">
                 <div className="flex items-center justify-between text-sm">
@@ -186,6 +266,15 @@ export const SessionList: React.FC<SessionListProps> = ({
           ))}
         </div>
       )}
+
+      <DeleteConfirmationModal
+        isOpen={showDeleteModal}
+        onClose={handleDeleteCancel}
+        onConfirm={handleDeleteConfirm}
+        title="Delete Session"
+        message={`Are you sure you want to delete "${sessionToDelete?.name}"? This action cannot be undone.`}
+        loading={deletingSessionId !== null}
+      />
     </div>
   );
 };

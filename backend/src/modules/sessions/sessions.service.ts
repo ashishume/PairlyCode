@@ -129,6 +129,20 @@ export class SessionsService {
       .exec();
   }
 
+  async deleteSession(id: string, user: User): Promise<void> {
+    const session = await this.findSessionById(id);
+
+    if (session.hostId.toString() !== user._id.toString()) {
+      throw new ForbiddenException('Only the host can delete the session');
+    }
+
+    // Delete all participants first
+    await this.participantModel.deleteMany({ sessionId: id }).exec();
+
+    // Delete the session
+    await this.sessionModel.findByIdAndDelete(id).exec();
+  }
+
   async addParticipant(
     sessionId: string,
     userId: string,

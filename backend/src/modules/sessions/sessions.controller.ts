@@ -80,4 +80,11 @@ export class SessionsController {
   async endSession(@Param('id') id: string, @Request() req): Promise<void> {
     return this.sessionsService.endSession(id, req.user);
   }
+
+  @Delete(':id/delete')
+  @ApiOperation({ summary: 'Delete a session permanently' })
+  @ApiResponse({ status: 200, description: 'Session deleted successfully' })
+  async deleteSession(@Param('id') id: string, @Request() req): Promise<void> {
+    return this.sessionsService.deleteSession(id, req.user);
+  }
 }

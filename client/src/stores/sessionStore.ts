@@ -64,10 +64,11 @@ export const useSessionStore = create<SessionState>()(
         removeSession: (sessionId: string) =>
           set((state) => ({
             sessions: state.sessions.filter(
-              (session) => session.id !== sessionId
+              (session) => (session.id || session._id) !== sessionId
             ),
             currentSession:
-              state.currentSession?.id === sessionId
+              (state.currentSession?.id || state.currentSession?._id) ===
+              sessionId
                 ? null
                 : state.currentSession,
           })),
